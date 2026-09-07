@@ -542,19 +542,53 @@ def _contract_c3_scan_bad_profile(http, cookie):
 
 
 def _contract_c4_scan_rapid(http, cookie):
-    """C4 scan busy 挂接: 连发两次 scan(间隔 0.05s),第二次 200 即通过
-    (busy:true 或独立 job_id 均可,时序宽容不强制必 busy)。"""
+    """C4 scan busy 挂接(SPEC §2.4 单作业互斥): 连发两次 scan(间隔 0.05s)。
+
+    第一次必须 200 且含 job_id(记录 first_id/first_busy);若第一次 busy:true
+    (已挂接既有作业)则 attach 语义已覆盖,跳过第二次分支断言仍 PASS。
+    第二次必须 200 且命中 attach 任一分支:
+      ① busy:true 且 job_id==first_id —— 挂接同一作业
+      ② job_id!=first_id —— 时序宽限(首次作业超快完结,第二次为独立新作业)
+      ③ 无 busy 且 job_id==first_id —— 引擎复用同一作业
+    失败时 info 附原始响应供排查。"""
     try:
-        st1, _, _ = http("POST", "/api/scan", {"subnet": "127.0.0.1"},
-                         cookie=cookie)
+        st1, _, d1 = http("POST", "/api/scan", {"subnet": "127.0.0.1"},
+                          cookie=cookie)
+        b1 = _try_json(d1)
+        first_id = b1.get("job_id")
+        first_busy = b1.get("busy") is True
+        if st1 != 200 or not first_id:
+            raw1 = json.dumps(b1, ensure_ascii=False)
+            return False, ("第一次 status=%d body=%s(需 200 且含 job_id)"
+                           % (st1, raw1))
         time.sleep(0.05)
         st2, _, d2 = http("POST", "/api/scan", {"subnet": "127.0.0.1"},
                           cookie=cookie)
         b2 = _try_json(d2)
-        ok = (st2 == 200 and ("job_id" in b2 or b2.get("busy") is True))
-        verdict = ("busy:true" if b2.get("busy")
-                   else "job_id=%s" % b2.get("job_id"))
-        return ok, "第一次 status=%d; 第二次 status=%d %s" % (st1, st2, verdict)
+        second_id = b2.get("job_id")
+        second_busy = b2.get("busy") is True
+        raw2 = json.dumps(b2, ensure_ascii=False)
+        if first_busy:
+            # attach 语义已由第一次响应(busy:true 挂接既有作业)覆盖,第二次仅要求 200
+            ok = (st2 == 200)
+            detail = ("first_id=%s first_busy=true(跳过attach断言);"
+                      " 第二次 status=%d second_id=%s second_busy=%s"
+                      % (first_id, st2, second_id, second_busy))
+            return ok, detail + ("" if ok else " body=%s" % raw2)
+        if second_id is None:
+            branch = None
+        elif second_busy and second_id == first_id:
+            branch = "①挂接(busy同一job)"       # 挂接语义
+        elif second_id != first_id:
+            branch = "②新作业(时序宽限)"        # 首次作业已完结
+        else:
+            branch = "③复用(无busy同job)"      # 引擎复用同一作业
+        ok = (st2 == 200 and branch is not None)
+        detail = ("first_id=%s first_busy=%s; 第二次 status=%d second_id=%s"
+                  " second_busy=%s branch=%s"
+                  % (first_id, first_busy, st2, second_id, second_busy,
+                     branch or "无匹配分支"))
+        return ok, detail + ("" if ok else " body=%s" % raw2)
     except OSError as e:
         return False, "err: %s" % e
 
