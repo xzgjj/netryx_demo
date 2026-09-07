@@ -17,6 +17,7 @@ log/
 # ===== 构建/编译临时产物 =====
 build/
 dist/
+.venv/
 *.pyc
 __pycache__/
 *.pyo

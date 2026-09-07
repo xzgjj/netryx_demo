@@ -1,0 +1,17 @@
+#!/bin/sh
+# pre-commit 兜底(经 git 自带 sh 执行;安装: git config core.hooksPath .githooks)
+# 拒绝:本地文档/测试/日志/敏感路径/二进制与超大数据入库(主防线是 .gitignore,这里是双保险)
+files=$(git diff --cached --name-only --diff-filter=ACM)
+bad=$(echo "$files" | grep -E '^(CLAUDE\.md|notes\.txt|implementation_plan\.md|diff\.md|AGENT_EXECUTION_PROTOCOL\.md|implementation-notes\.md|design\.md|SPEC\.md|docs/|tests/|log/|shots/|netryx-data/|netryx-demodata/)' || true)
+big=$(git diff --cached --numstat | awk '{ if (($1+$2) > 200000) print $3 }')
+if [ -n "$bad" ]; then
+  echo "[hook] 拒绝提交:以下为本地文档/测试/日志/敏感路径(不入库)," >&2
+  echo "$bad" | sed 's/^/  - /' >&2
+  exit 1
+fi
+if [ -n "$big" ]; then
+  echo "[hook] 拒绝提交:检测到超大变更文件:" >&2
+  echo "$big" | sed 's/^/  - /' >&2
+  exit 1
+fi
+exit 0

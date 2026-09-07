@@ -1,0 +1,10 @@
+#!/bin/sh
+# pre-push 兜底:推送前跑环境基线 check(quick)
+echo "[hook] pre-push: build.py check"
+python -X utf8 build.py check
+rc=$?
+if [ $rc -ne 0 ]; then
+  echo "[hook] check 未通过(exit $rc),已阻断 push" >&2
+  exit 1
+fi
+exit 0
