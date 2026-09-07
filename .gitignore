@@ -1,0 +1,6 @@
+# 真实环境数据 / 敏感文件 - 一律不入库
+shots/
+netryx-data/
+*.log
+*.png
+.DS_Store
