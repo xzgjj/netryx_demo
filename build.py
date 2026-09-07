@@ -3,7 +3,7 @@
 
 子命令:
   check    环境与接口基线验证(Python 版本/文件完整性/数据目录可写/
-           workflow 文件存在/引擎可编译/系统命令/端口)
+           workflow 文件存在/引擎可编译/系统命令/端口/启动器链)
   test     运行 tests/ 下的全部测试(自动用 .venv 内 pytest)
   smoke    端到端接口冒烟: 临时端口起引擎,登录/取会话/取 /api/info
   pack     交付打包: dist/netryx_demo-<UTC时间戳>.zip + manifest.json
@@ -19,6 +19,8 @@
 import glob
 import hashlib
 import http.client
+import importlib.util
+import inspect
 import json
 import logging
 import os
@@ -167,10 +169,154 @@ def check_engine_compile():
     return _compile_check(os.path.join(ENGINE_DIR, "netryx.py"), "engine/netryx.py")
 
 
+def _load_script_module(rel_path):
+    """importlib 按文件路径加载 scripts/ 下模块(不触发 __main__ 主流程)。
+
+    加载期间置 sys.dont_write_bytecode,避免在 scripts/ 生成新 .pyc(不污染
+    __pycache__);返回加载后的 module 对象。
+    """
+    path = os.path.join(ROOT, rel_path)
+    name = "scripts." + os.path.splitext(os.path.basename(rel_path))[0]
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError("无法加载 %s(路径: %s)" % (rel_path, path))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def check_launcher_modules():
+    """启动器链模块完整性(w2 产物): 4 个文件存在 + 可加载/可编译。
+
+    - launcher_env.py  importlib 加载,render_report 必须可调用且签名非空;
+    - launcher_engine.py  importlib 加载,start_engine/stop_engine 必须存在;
+    - launch.py / verifier_launcher.py  仅 py_compile(写临时目录,不运行
+      argparse 主流程);文件缺失或加载/签名异常一律 FAIL(硬),无 WARN 级。
+    """
+    files = ("scripts/launcher_env.py", "scripts/launcher_engine.py",
+             "scripts/launch.py", "scripts/verifier_launcher.py")
+    for rel in files:
+        log.info("launcher file %-26s %s", rel,
+                 "OK" if os.path.isfile(os.path.join(ROOT, rel)) else "MISSING")
+    missing = [rel for rel in files
+               if not os.path.isfile(os.path.join(ROOT, rel))]
+    if missing:
+        log.info("launcher modules FAIL: 缺失 %s", ", ".join(missing))
+        return False
+    ok = True
+    prev_dont_write = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        try:
+            env = _load_script_module("scripts/launcher_env.py")
+            render_report = getattr(env, "render_report", None)
+            sig_ok = False
+            sig_text = ""
+            if callable(render_report):
+                try:
+                    sig = inspect.signature(render_report)
+                    sig_ok = len(sig.parameters) >= 1
+                    sig_text = str(sig)
+                except (TypeError, ValueError):
+                    sig_ok = False
+            if not sig_ok:
+                log.info("launcher check launcher_env FAIL: render_report "
+                         "不可调用或签名异常")
+                ok = False
+            else:
+                log.info("launcher check launcher_env OK: render_report "
+                         "可调用,签名 %s", sig_text)
+        except Exception as e:
+            log.info("launcher check launcher_env FAIL: 加载异常(%s)", e)
+            ok = False
+        try:
+            eng = _load_script_module("scripts/launcher_engine.py")
+            missing_apis = [n for n in ("start_engine", "stop_engine")
+                            if not callable(getattr(eng, n, None))]
+            if missing_apis:
+                log.info("launcher check launcher_engine FAIL: 缺少 %s",
+                         ", ".join(missing_apis))
+                ok = False
+            else:
+                log.info("launcher check launcher_engine OK: "
+                         "start_engine/stop_engine 就绪")
+        except Exception as e:
+            log.info("launcher check launcher_engine FAIL: 加载异常(%s)", e)
+            ok = False
+    finally:
+        sys.dont_write_bytecode = prev_dont_write
+    # launch / verifier 不运行主流程(argparse),仅编译校验(_compile_check 写临时文件)
+    ok = _compile_check(os.path.join(ROOT, "scripts", "launch.py"),
+                        "scripts/launch.py") and ok
+    ok = _compile_check(os.path.join(ROOT, "scripts", "verifier_launcher.py"),
+                        "scripts/verifier_launcher.py") and ok
+    log.info("launcher modules %s", "OK" if ok else "FAIL")
+    return ok
+
+
+def check_launcher_report():
+    """子进程跑 scripts/launcher_env.py 体检(不起引擎;超时 60s)。
+
+    断言输出含"手机访问地址"与"admin/admin"且退出码 0(全新环境数据目录
+    自动创建,应 rc=0);rc=1(端口被占)WARN 化,其余失败 FAIL(体检链必须
+    健康)。须在 check_port 之后调用(端口状态已先行探测)。
+    """
+    rel = "scripts/launcher_env.py"
+    path = os.path.join(ROOT, rel)
+    if not os.path.isfile(path):
+        log.info("launcher report FAIL: 缺少 %s", rel)
+        return False
+    try:
+        p = subprocess.run([sys.executable, "-X", "utf8", path],
+                           capture_output=True, timeout=60,
+                           encoding="utf-8", errors="replace")
+    except subprocess.TimeoutExpired:
+        log.info("launcher report FAIL: 超时(60s)")
+        return False
+    except OSError as e:
+        log.info("launcher report FAIL: 子进程启动失败(%s)", e)
+        return False
+    code = p.returncode
+    out = (p.stdout or "") + (p.stderr or "")
+    if code == 0:
+        missing = [k for k in ("手机访问地址", "admin/admin") if k not in out]
+        if missing:
+            log.info("launcher report FAIL: rc=0 但输出缺少 %s",
+                     ", ".join(missing))
+            return False
+        log.info("launcher report OK (rc=0, 含 手机访问地址/admin/admin)")
+        return True
+    if code == 1:
+        log.info("launcher report WARN: rc=1(端口被占)- 若 8765 被引擎占用,"
+                 "启动器体检 rc=1 属预期")
+        return True
+    log.info("launcher report FAIL: rc=%d(输出尾部: %s)", code,
+             out[-160:].replace("\n", " "))
+    return False
+
+
+def check_verifier_exists():
+    """verifier_launcher.py 存在性提示(存在性/编译已在模块检查中覆盖)。
+
+    存在则打印交付演练指引(仅提示,可返回 True);缺失仅 WARN——硬失败由
+    check_launcher_modules 兜底。
+    """
+    rel = "scripts/verifier_launcher.py"
+    if os.path.isfile(os.path.join(ROOT, rel)):
+        log.info("verifier launcher OK: 交付演练可用: python -X utf8 "
+                 "scripts\\verifier_launcher.py --quick")
+        return True
+    log.info("verifier launcher WARN: 缺少 %s(见 launcher modules 检查)", rel)
+    return True
+
+
 def run_check():
     results = [check_python(), check_files(), check_data_dir(),
                check_workflows(), check_engine_compile(),
-               check_system_tools(), check_port()]
+               check_system_tools(), check_port(),
+               check_launcher_modules(), check_launcher_report(),
+               check_verifier_exists()]
     ok = all(results)
     log.info("check %s", "PASS" if ok else "FAIL")
     return 0 if ok else 2
