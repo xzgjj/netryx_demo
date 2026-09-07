@@ -1,12 +1,10 @@
 # 手机端(390x844)截图验证:登录页 -> 登录 -> dashboard -> 触发扫描 -> 结果截图
+import os
 import re
-import sys
-import time
 from playwright.sync_api import sync_playwright
 
 BASE = "http://127.0.0.1:8765"
-OUT = "D:/vsc_project/lan-network-manager/shots"
-import os
+OUT = "D:/vsc_project/netryx_demo/shots"
 os.makedirs(OUT, exist_ok=True)
 
 with sync_playwright() as p:

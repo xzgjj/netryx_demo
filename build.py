@@ -753,7 +753,7 @@ def _smoke_report(steps, engine_lines=None):
         log.info("smoke %-20s %-4s %s", name, "PASS" if passed else "FAIL", info)
     if not ok and engine_lines:
         log.info("engine output (tail):\n%s", "\n".join(
-            [l for l in engine_lines if l.strip()][-12:]))
+            [ln for ln in engine_lines if ln.strip()][-12:]))
     log.info("smoke %s", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
