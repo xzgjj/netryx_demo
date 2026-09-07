@@ -1,0 +1,51 @@
+# netryx_demo 发布:推送 v* 标签 → 打包校验 → 创建 GitHub Release(自动化构建产物)
+# 顶层只读;仅 release job 放开 contents: write(无 GPG/签名需求)
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: release (tag ${{ github.ref_name }})
+    runs-on: ubuntu-latest
+    # GitHub 无 workflow 级 timeout-minutes 键(未授权);按官方语法放 job 级
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: build.py
+
+      - name: Pack deliverable
+        run: python -X utf8 build.py pack
+
+      - name: Verify package
+        run: python -X utf8 build.py verify
+
+      # files 为 glob,匹配 dist/ 下交付 zip;任一匹配不到即失败(fail_on_unmatched_files)
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*.zip
+          fail_on_unmatched_files: true
+          body: |
+            自动化构建产物(引擎 netryx.py + ui.html + build.py + 启动脚本 + LICENSE + README)。
+            已通过 build.py pack 打包与 build.py verify 校验。
+          generate_release_notes: true

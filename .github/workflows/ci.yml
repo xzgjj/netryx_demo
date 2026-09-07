@@ -1,0 +1,93 @@
+# netryx_demo CI:多平台(ubuntu/windows)× 多 Python(3.8/3.13)构建、测试与交付校验
+# 触发:任意分支 push 与 pull request;并发按 ref 取消旧运行;零第三方依赖,无需安装业务依赖
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build-test (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    # GitHub 无 workflow 级 timeout-minutes 键(未授权);按官方语法放 job 级:
+    # 每个矩阵组合/作业最长 10 分钟,超时自动取消
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.8', '3.13']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # 零第三方依赖,缓存仅覆盖 pip 升级本身;仓库无 requirements/pyproject,
+      # 以 build.py 作为 cache 键锚点(否则 setup-python 因找不到依赖文件直接报错)
+      - name: Setup Python ${{ matrix.python }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: build.py
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      # 环境基线:Python 版本/文件完整性/数据目录可写/系统命令(ping、ipconfig|ip)/端口
+      - name: Environment check
+        run: python -X utf8 build.py check
+
+      # 语法编译检查;正斜杠路径在 Windows/Linux 均被 Python 接受
+      - name: Python syntax check (py_compile)
+        run: python -X utf8 -m py_compile engine/netryx.py build.py
+
+      # 端到端接口冒烟:起引擎(127.0.0.1 临时端口,无外部网络依赖)→ login → info,输出 PASS/FAIL
+      - name: Smoke test
+        run: python -X utf8 build.py smoke
+
+      # 任一步骤失败时上传 log/ 下的构建日志,便于排查
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-${{ matrix.os }}-${{ matrix.python }}
+          path: log/
+
+  package:
+    name: package (build dist zip)
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: build.py
+
+      # 打交付 zip(引擎 + ui.html + build.py + 启动脚本 + LICENSE + README)到 dist/
+      - name: Pack deliverable
+        run: python -X utf8 build.py pack
+
+      # 校验包内容与一致性
+      - name: Verify package
+        run: python -X utf8 build.py verify
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: netryx-demo-dist
+          path: dist/
+          if-no-files-found: error
