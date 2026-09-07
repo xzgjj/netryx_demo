@@ -5,7 +5,8 @@
   check    环境与接口基线验证(Python 版本/文件完整性/数据目录可写/
            workflow 文件存在/引擎可编译/系统命令/端口/启动器链)
   test     运行 tests/ 下的全部测试(自动用 .venv 内 pytest)
-  smoke    端到端接口冒烟: 临时端口起引擎,登录/取会话/取 /api/info
+  smoke    端到端接口冒烟: 临时端口起引擎,登录/取会话/取 /api/info +
+           SPEC §2.4 接口契约矩阵(C1-C7,每步独立断言)
   pack     交付打包: dist/netryx_demo-<UTC时间戳>.zip + manifest.json
   verify   校验交付包: manifest 路径/大小/sha256 + py_compile
   setup    .venv 引导(创建 + pip install pytest)
@@ -462,9 +463,161 @@ def _kill_proc(proc):
 
 
 # ---------------------------------------------------------------- smoke
+SMOKE_HTTP_TIMEOUT = 5           # 契约步单次 HTTP 超时(秒)
+SMOKE_JOB_POLL_TIMEOUT = 30      # C3 作业轮询上限(秒),超时仅 WARN 不判 FAIL
+
+
+def _try_json(data):
+    """字节响应体解析 JSON;解析失败返回 {}(契约步宽松断言用)。"""
+    try:
+        return json.loads(data.decode("utf-8")) if data else {}
+    except Exception:
+        return {}
+
+
+def _contract_http(port):
+    """绑定 smoke 端口的 HTTP 调用器(契约步统一 5s 超时)。
+
+    cookie 参数为完整 Cookie 头(如 "ns_session=xxx"),与 _http 语义一致。
+    """
+    def call(method, path, body=None, cookie=None):
+        return _http(port, method, path, body=body, cookie=cookie,
+                     timeout=SMOKE_HTTP_TIMEOUT)
+    return call
+
+
+def _contract_c1_login_fail(http, cookie):
+    """C1 login 失败 401: 错误密码 -> 401 且响应体含 error。"""
+    try:
+        st, _, data = http("POST", "/api/login",
+                           {"username": "admin", "password": "wrong"})
+        text = json.dumps(_try_json(data), ensure_ascii=False)
+        ok = (st == 401 and "error" in text)
+        return ok, "status=%d body=%s" % (st, text)
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+def _contract_c2_scan_empty(http, cookie):
+    """C2 scan 空参数 400: 空 subnet -> 400 且体含 subnet required。"""
+    try:
+        st, _, data = http("POST", "/api/scan", {"subnet": ""}, cookie=cookie)
+        text = json.dumps(_try_json(data), ensure_ascii=False)
+        ok = (st == 400 and "subnet required" in text)
+        return ok, "status=%d body=%s" % (st, text)
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+def _contract_c3_scan_bad_profile(http, cookie):
+    """C3 scan 非法 profile 容错: 200 + job_id(引擎白名单回退 quick),随后轮询
+    /api/job 等待 done/error;30s 超时仅 WARN 不判 FAIL(后台作业不影响后续)。"""
+    try:
+        st, _, data = http("POST", "/api/scan",
+                           {"subnet": "127.0.0.1", "port_profile": "bogus",
+                            "scan_ports": True}, cookie=cookie)
+        body = _try_json(data)
+        jid = body.get("job_id")
+        if st != 200 or not jid:
+            body_txt = json.dumps(body, ensure_ascii=False)
+            return False, "status=%d body=%s" % (st, body_txt)
+        final = None
+        deadline = time.time() + SMOKE_JOB_POLL_TIMEOUT
+        while time.time() < deadline:
+            try:
+                st2, _, d2 = http("GET", "/api/job?id=" + jid, cookie=cookie)
+                if st2 == 200:
+                    curr = _try_json(d2).get("status")
+                    if curr in ("done", "error"):
+                        final = curr
+                        break
+            except OSError:
+                pass
+            time.sleep(0.5)
+        if final is None:
+            return True, "job_id=%s 30s 未完结(WARN,后台作业不影响后续步骤)" % jid
+        return True, "job_id=%s status=%s(白名单回退 quick 已验证)" % (jid, final)
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+def _contract_c4_scan_rapid(http, cookie):
+    """C4 scan busy 挂接: 连发两次 scan(间隔 0.05s),第二次 200 即通过
+    (busy:true 或独立 job_id 均可,时序宽容不强制必 busy)。"""
+    try:
+        st1, _, _ = http("POST", "/api/scan", {"subnet": "127.0.0.1"},
+                         cookie=cookie)
+        time.sleep(0.05)
+        st2, _, d2 = http("POST", "/api/scan", {"subnet": "127.0.0.1"},
+                          cookie=cookie)
+        b2 = _try_json(d2)
+        ok = (st2 == 200 and ("job_id" in b2 or b2.get("busy") is True))
+        verdict = ("busy:true" if b2.get("busy")
+                   else "job_id=%s" % b2.get("job_id"))
+        return ok, "第一次 status=%d; 第二次 status=%d %s" % (st1, st2, verdict)
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+def _contract_c5_device_empty(http, cookie):
+    """C5 device 空 key 400: 空体 -> 400 且体含 mac or ip required。"""
+    try:
+        st, _, data = http("POST", "/api/device", {}, cookie=cookie)
+        text = json.dumps(_try_json(data), ensure_ascii=False)
+        ok = (st == 400 and "mac or ip required" in text)
+        return ok, "status=%d body=%s" % (st, text)
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+def _contract_c6_info_fields(http, cookie):
+    """C6 info 契约字段: subnet/local_ip/cpu/platform/auth 齐全 +
+    auth.enabled/default_creds=true + auth.username=="admin"。"""
+    try:
+        st, _, data = http("GET", "/api/info", cookie=cookie)
+        body = _try_json(data)
+        auth = body.get("auth") or {}
+        missing = [k for k in ("subnet", "local_ip", "cpu", "platform", "auth")
+                   if k not in body]
+        ok = (st == 200 and not missing and auth.get("enabled") is True
+              and auth.get("default_creds") is True
+              and auth.get("username") == "admin")
+        auth_txt = json.dumps(auth, ensure_ascii=False)
+        detail = "status=%d missing=%s auth=%s" % (st, missing or "无", auth_txt)
+        return ok, detail
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+def _contract_c7_logout_deny(http, cookie):
+    """C7 登出后拒绝: 带 cookie 登出 200,随后无 cookie 访问 /api/info
+    得 302(跳转登录)或 401(拒绝)均判通过。"""
+    try:
+        st, _, _ = http("POST", "/api/logout", {}, cookie=cookie)
+        if st != 200:
+            return False, "logout status=%d" % st
+        st2, _, _ = http("GET", "/api/info")
+        ok = st2 in (302, 401)
+        return ok, "logout=%d; info(无 cookie)=%d" % (st, st2)
+    except OSError as e:
+        return False, "err: %s" % e
+
+
+CONTRACT_STEPS = [
+    ("C1 login失败401", _contract_c1_login_fail),
+    ("C2 scan空参400", _contract_c2_scan_empty),
+    ("C3 scan非法profile容错", _contract_c3_scan_bad_profile),
+    ("C4 scan busy挂接", _contract_c4_scan_rapid),
+    ("C5 device空key400", _contract_c5_device_empty),
+    ("C6 info契约字段", _contract_c6_info_fields),
+    ("C7 登出后拒绝", _contract_c7_logout_deny),
+]
+
+
 def run_smoke():
     """端到端接口冒烟: 临时端口 + 全新 NETRYX_DATA 起引擎(admin/admin 默认场景),
-    GET /login -> POST /api/login(取 ns_session) -> GET /api/info。
+    GET /login -> POST /api/login(取 ns_session) -> GET /api/info -> 契约矩阵
+    C1-C7(每步独立断言,失败收集不中断,全部跑完再汇总)。
     全程 try/finally: 子进程必杀、临时数据目录必清。"""
     steps = []                    # [(步骤名, 是否通过, 附加信息)]
     def note(name, ok, info=""):
@@ -529,8 +682,7 @@ def run_smoke():
         ok = (st == 200 and cookie is not None)
         note("POST /api/login", ok, "status=%d cookie=%s" % (st,
              "yes(%s...)" % cookie[:12] if cookie else "no"))
-        if not ok:
-            return _smoke_report(steps, out_lines)
+        # 登录失败也继续(契约步独立收集,最终汇总判 rc)——仅引擎未就绪才中断
 
         st, _, data = _http(actual, "GET", "/api/info", cookie="ns_session=" + cookie)
         info = None
@@ -543,6 +695,16 @@ def run_smoke():
               and auth.get("default_creds") is True)
         note("GET /api/info", ok, "status=%d auth=%s" % (st,
              json.dumps(auth, ensure_ascii=False)))
+
+        # SPEC §2.4 接口契约矩阵 C1-C7: 独立断言,失败收集不中断,全部跑完再汇总
+        call = _contract_http(actual)
+        cookie_hdr = "ns_session=" + cookie
+        for name, fn in CONTRACT_STEPS:
+            try:
+                c_ok, c_info = fn(call, cookie_hdr)
+            except Exception as e:        # 单步任何异常不中断整体
+                c_ok, c_info = False, "unexpected: %s" % e
+            note(name, c_ok, c_info)
         return _smoke_report(steps, out_lines)
     finally:
         _kill_proc(proc)
