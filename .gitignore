@@ -1,6 +1,38 @@
-# 真实环境数据 / 敏感文件 - 一律不入库
+# ===== 项目文档/准则(本地工作区用,不入库) =====
+CLAUDE.md
+notes.txt
+implementation_plan.md
+diff.md
+AGENT_EXECUTION_PROTOCOL.md
+implementation-notes.md
+design.md
+SPEC.md
+docs/
+
+# ===== 测试与日志 =====
+tests/
+log/
+*.log
+
+# ===== 构建/编译临时产物 =====
+build/
+dist/
+*.pyc
+__pycache__/
+*.pyo
+*.spec
+.pytest_cache/
+
+# ===== 真实环境数据/敏感 =====
 shots/
 netryx-data/
-*.log
-*.png
+*.pem
+*.key
+
+# ===== 工具链/系统 =====
+.pulse.json
+.learnings/
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
