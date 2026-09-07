@@ -2,22 +2,37 @@
 """netryx_demo 统一工程入口(标准库,零第三方依赖)
 
 子命令:
-  check  环境与接口基线验证(Python 版本/文件完整性/数据目录可写/系统命令/端口)
-  test   运行 tests/ 下的全部测试
-  clean  清理构建与运行残留(__pycache__/build/dist)
-  log    整理并查看 log/ 目录(带轮转约束)
-  all    依次执行 check -> test -> log
+  check    环境与接口基线验证(Python 版本/文件完整性/数据目录可写/
+           workflow 文件存在/引擎可编译/系统命令/端口)
+  test     运行 tests/ 下的全部测试(自动用 .venv 内 pytest)
+  smoke    端到端接口冒烟: 临时端口起引擎,登录/取会话/取 /api/info
+  pack     交付打包: dist/netryx_demo-<UTC时间戳>.zip + manifest.json
+  verify   校验交付包: manifest 路径/大小/sha256 + py_compile
+  setup    .venv 引导(创建 + pip install pytest)
+  clean    清理构建与运行残留(__pycache__/build/dist)
+  log      整理并查看 log/ 目录(带轮转约束)
+  all      依次执行 check -> test -> pack -> verify
 
-用法:python build.py <check|test|clean|log|all>
-退出码:0 成功 / 1 失败 / 2 环境问题
+用法: python build.py <check|test|smoke|pack|verify [zip]|setup|clean|log|all>
+退出码: 0 成功 / 1 失败 / 2 环境问题
 """
+import glob
+import hashlib
+import http.client
+import json
 import logging
 import os
+import py_compile
 import re
 import shutil
+import socket
 import subprocess
 import sys
-import unittest
+import tempfile
+import threading
+import time
+import zipfile
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +42,12 @@ LOG_MAX_BYTES = 5 * 1024 * 1024    # 单文件 5MB
 LOG_BACKUP_COUNT = 10              # 最多 10 份
 ENGINE_DIR = os.path.join(ROOT, "engine")
 DATA_DIR = os.path.join(ROOT, "netryx-data")
+DIST_DIR = os.path.join(ROOT, "dist")
 PORT = 8765
+DELIVERY_VERSION = "0.1.0"
+PACK_FILES = ["engine/netryx.py", "engine/ui.html", "engine/LICENSE",
+              "build.py", "start.cmd", "start.ps1", "README.md"]   # 后两项可选
+PACK_OPTIONAL = {"start.ps1", "README.md"}
 
 log = logging.getLogger("build")
 
@@ -91,12 +111,22 @@ def check_data_dir():
 
 
 def check_system_tools():
+    """系统命令(ping/ipconfig/ip)存在性与探活,跨平台;缺失仅 WARN,不判失败。"""
+    is_win = sys.platform.startswith("win")
+    if is_win:
+        plan = (("ping", ["ping", "-n", "1", "-w", "200", "127.0.0.1"]),
+                ("ipconfig", ["ipconfig"]))
+    else:
+        plan = (("ping", ["ping", "-c", "1", "-W", "1", "127.0.0.1"]),
+                ("ip", ["ip", "-4", "addr"]))
     ok = True
-    for cmd, label in ((["ping", "-n", "1", "-w", "200", "127.0.0.1"], "ping"),
-                       (["ipconfig"], "ipconfig")):
+    for tool, cmd in plan:
+        if not shutil.which(tool):
+            log.info("sys tool %s WARN: not found, skipped", tool)
+            continue
         code, out = _run(cmd)
         good = (code == 0)
-        log.info("sys tool %s %s", label, "OK" if good else "FAIL(%s)" % out[:120])
+        log.info("sys tool %s %s", tool, "OK" if good else "FAIL(%s)" % out[:120])
         ok = ok and good
     return ok
 
@@ -104,7 +134,6 @@ def check_system_tools():
 def check_port():
     """socket.bind 探测 8765(标准库,免 powershell 依赖)。
     EADDRINUSE => 引擎可能已在运行(WARN,不 FAIL)。"""
-    import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.bind(("127.0.0.1", PORT))
@@ -120,8 +149,27 @@ def check_port():
         s.close()
 
 
+def check_workflows():
+    """GitHub Actions 工作流文件存在性(.github/workflows/*.yml|yaml,不解析内容)。
+    WARN 级:开发期可能尚未补齐;CI 场景由 workflow 自身保证存在,不阻断本地基线。"""
+    found = sorted(glob.glob(os.path.join(ROOT, ".github", "workflows", "*.y*ml")))
+    ok = bool(found)
+    log.info("workflows %s (%d 个: %s)", "OK" if ok else "WARN: 未找到(开发期可接受)",
+             len(found),
+             ", ".join(os.path.relpath(p, ROOT) for p in found[:3]) or "无")
+    if not ok:
+        log.info("  指引: 交付前请补充 .github/workflows/*.yml(CI 工作流)")
+    return True  # WARN 级,不判失败(交付前由 CI 冒烟保证)
+
+
+def check_engine_compile():
+    """引擎可编译性: py_compile 只编译不执行,产物写临时目录不入仓库。"""
+    return _compile_check(os.path.join(ENGINE_DIR, "netryx.py"), "engine/netryx.py")
+
+
 def run_check():
     results = [check_python(), check_files(), check_data_dir(),
+               check_workflows(), check_engine_compile(),
                check_system_tools(), check_port()]
     ok = all(results)
     log.info("check %s", "PASS" if ok else "FAIL")
@@ -130,7 +178,11 @@ def run_check():
 
 # ---------------------------------------------------------------- test
 def _venv_python():
-    p = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
+    """.venv 内 Python 解释器(Windows Scripts/,POSIX bin/),缺失返回 None。"""
+    if os.name == "nt":
+        p = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
+    else:
+        p = os.path.join(ROOT, ".venv", "bin", "python")
     return p if os.path.isfile(p) else None
 
 
@@ -187,7 +239,318 @@ def run_log(show=True):
     return 0
 
 
+# ---------------------------------------------------------------- helpers
+def _compile_check(src, label):
+    """py_compile 编译单个源文件(只编译不执行);.pyc 写临时目录。返回 bool。"""
+    fd, cfile = tempfile.mkstemp(suffix=".pyc")
+    os.close(fd)
+    try:
+        py_compile.compile(src, cfile=cfile, doraise=True)
+    except py_compile.PyCompileError as e:
+        log.info("compile %-22s FAIL: %s", label, getattr(e, "msg", e))
+        return False
+    finally:
+        try:
+            os.remove(cfile)
+        except OSError:
+            pass
+    log.info("compile %-22s OK", label)
+    return True
+
+
+def _http(port, method, path, body=None, cookie=None, timeout=5):
+    """单次 HTTP 请求(标准库 http.client);返回 (status, headers, bytes)。
+    headers 为 (名, 值) 元组列表;连接失败/超时抛 OSError。"""
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    try:
+        headers = {"Accept": "application/json"}
+        payload = None
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            payload = json.dumps(body).encode("utf-8")
+        if cookie:
+            headers["Cookie"] = cookie
+        conn.request(method, path, body=payload, headers=headers)
+        resp = conn.getresponse()
+        return resp.status, resp.getheaders(), resp.read()
+    finally:
+        conn.close()
+
+
+def _cookie_value(headers):
+    """从响应头提取 ns_session cookie 的值(不含属性)。"""
+    for name, val in headers:
+        if name.lower() == "set-cookie" and val.startswith("ns_session="):
+            return val.split(";", 1)[0].split("=", 1)[1]
+    return None
+
+
+def _pick_smoke_port():
+    """在 PORT+1..PORT+20 顺序挑选一个当前可绑定的端口;全被占返回 None。"""
+    for p in range(PORT + 1, PORT + 21):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(("127.0.0.1", p))
+            s.close()
+            return p
+        except OSError:
+            s.close()
+    return None
+
+
+def _kill_proc(proc):
+    """终止子进程并回收: terminate -> wait 5s -> kill 兜底。"""
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    proc.kill()
+    try:
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------- smoke
+def run_smoke():
+    """端到端接口冒烟: 临时端口 + 全新 NETRYX_DATA 起引擎(admin/admin 默认场景),
+    GET /login -> POST /api/login(取 ns_session) -> GET /api/info。
+    全程 try/finally: 子进程必杀、临时数据目录必清。"""
+    steps = []                    # [(步骤名, 是否通过, 附加信息)]
+    def note(name, ok, info=""):
+        steps.append((name, bool(ok), info))
+
+    port = _pick_smoke_port()
+    if port is None:
+        log.info("[错误] smoke 端口 %d-%d 全部被占", PORT + 1, PORT + 20)
+        return 1
+    tmp_data = tempfile.mkdtemp(prefix="netryx-smoke-")
+    env = dict(os.environ, NETRYX_DATA=tmp_data, PYTHONIOENCODING="utf-8")
+    engine_py = os.path.join(ENGINE_DIR, "netryx.py")
+    proc = None
+    out_lines = []                # 引擎 stdout 缓冲(诊断/端口实测)
+    try:
+        actual = port
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, "-u", engine_py, "--no-browser",
+                 "--port", str(port)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", env=env)
+        except OSError as e:
+            note("start-engine", False, str(e))
+            return _smoke_report(steps, out_lines)
+
+        def _drain():
+            try:
+                for line in proc.stdout:
+                    out_lines.append(line.rstrip())
+            except Exception:
+                pass
+        threading.Thread(target=_drain, daemon=True).start()
+        note("start-engine", True, "pid=%d port=%d data=%s"
+             % (proc.pid, port, tmp_data))
+
+        # 轮询 /login 直到 200(引擎 fallback 端口也认: banner 覆盖实际端口)
+        ready = False
+        for _ in range(30):
+            if proc.poll() is not None:
+                break
+            for line in out_lines:
+                m = re.search(r"http://127\.0\.0\.1:(\d+)", line)
+                if m:
+                    actual = int(m.group(1))
+            try:
+                if _http(actual, "GET", "/login")[0] == 200:
+                    ready = True
+                    break
+            except OSError:
+                pass
+            time.sleep(0.5)
+        note("GET /login", ready, "port=%d via=%s" % (actual,
+             "banner" if actual != port else "probe"))
+        if not ready:
+            return _smoke_report(steps, out_lines)
+
+        st, hdrs, _ = _http(actual, "POST", "/api/login",
+                            {"username": "admin", "password": "admin",
+                             "remember": True})
+        cookie = _cookie_value(hdrs)
+        ok = (st == 200 and cookie is not None)
+        note("POST /api/login", ok, "status=%d cookie=%s" % (st,
+             "yes(%s...)" % cookie[:12] if cookie else "no"))
+        if not ok:
+            return _smoke_report(steps, out_lines)
+
+        st, _, data = _http(actual, "GET", "/api/info", cookie="ns_session=" + cookie)
+        info = None
+        try:
+            info = json.loads(data.decode("utf-8")) if data else None
+        except Exception:
+            pass
+        auth = (info or {}).get("auth") or {}
+        ok = (st == 200 and auth.get("enabled") is True
+              and auth.get("default_creds") is True)
+        note("GET /api/info", ok, "status=%d auth=%s" % (st,
+             json.dumps(auth, ensure_ascii=False)))
+        return _smoke_report(steps, out_lines)
+    finally:
+        _kill_proc(proc)
+        if tmp_data and os.path.isdir(tmp_data):
+            shutil.rmtree(tmp_data, ignore_errors=True)
+
+
+def _smoke_report(steps, engine_lines=None):
+    """输出冒烟每步 PASS/FAIL 摘要;失败时附引擎输出尾部(诊断窗口)。"""
+    ok = all(p for _, p, _ in steps)
+    for name, passed, info in steps:
+        log.info("smoke %-20s %-4s %s", name, "PASS" if passed else "FAIL", info)
+    if not ok and engine_lines:
+        log.info("engine output (tail):\n%s", "\n".join(
+            [l for l in engine_lines if l.strip()][-12:]))
+    log.info("smoke %s", "PASS" if ok else "FAIL")
+    return 0 if ok else 1
+
+
+# ---------------------------------------------------------------- pack
+def run_pack():
+    """交付打包: 收集清单文件 -> dist/netryx_demo-<UTC时间戳>.zip,内含 manifest.json。
+    可选文件(start.ps1/README.md)缺失跳过,必须文件缺失报 [错误] 退出 1。"""
+    os.makedirs(DIST_DIR, exist_ok=True)
+    entries = []
+    for rel in PACK_FILES:
+        src = os.path.join(ROOT, rel)
+        if not os.path.isfile(src):
+            if rel in PACK_OPTIONAL:
+                log.info("pack skip(可选): %s", rel)
+                continue
+            log.info("[错误] 缺少 %s", src)
+            return 1
+        entries.append((rel, src))
+    stamp = datetime.now(timezone.utc)
+    manifest = {"generated": stamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "version": DELIVERY_VERSION, "files": []}
+    zip_path = os.path.join(DIST_DIR, "netryx_demo-%s.zip"
+                            % stamp.strftime("%Y%m%d-%H%M%S"))
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for rel, src in entries:
+                with open(src, "rb") as f:
+                    data = f.read()
+                manifest["files"].append({"path": rel, "size": len(data),
+                                          "sha256": hashlib.sha256(data).hexdigest()})
+                zf.writestr(rel, data)
+            zf.writestr("manifest.json",
+                        json.dumps(manifest, indent=2, ensure_ascii=False))
+    except OSError as e:
+        log.info("[错误] 打包失败: %s", e)
+        return 1
+    log.info("pack %s OK (%d 文件, %d bytes)", zip_path, len(entries),
+             os.path.getsize(zip_path))
+    return 0
+
+
+# ---------------------------------------------------------------- verify
+def _latest_zip():
+    """dist/ 下按修改时间最新的 *.zip,无则 None。"""
+    zips = [p for p in glob.glob(os.path.join(DIST_DIR, "*.zip"))
+            if os.path.isfile(p)]
+    return max(zips, key=os.path.getmtime) if zips else None
+
+
+def run_verify(zip_path=None):
+    """校验交付包: manifest 存在 -> 每条 files 的 path/size/sha256 与 zip 内一致
+    -> 引擎与 build.py py_compile 编译通过。解压到临时目录,成败均清理。"""
+    zip_path = zip_path or _latest_zip()
+    if not zip_path:
+        log.info("[错误] dist/ 下未找到 *.zip - 请先运行: build.py pack")
+        return 1
+    if not os.path.isfile(zip_path):
+        log.info("[错误] zip 不存在: %s", zip_path)
+        return 1
+    tmp = tempfile.mkdtemp(prefix="netryx-verify-")
+    try:
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                names = zf.namelist()
+                if "manifest.json" not in names:
+                    log.info("[错误] %s 缺少 manifest.json", zip_path)
+                    return 1
+                try:
+                    manifest = json.loads(zf.read("manifest.json").decode("utf-8"))
+                except Exception as e:
+                    log.info("[错误] manifest.json 解析失败: %s", e)
+                    return 1
+                entries = manifest.get("files") or []
+                log.info("verify manifest OK (version=%s, %d 文件清单)",
+                         manifest.get("version", "?"), len(entries))
+                ok = True
+                for item in entries:
+                    path = item.get("path")
+                    if path not in names:
+                        log.info("verify file %-22s FAIL: zip 内无此条目", path or "?")
+                        ok = False
+                        continue
+                    data = zf.read(path)
+                    size_ok = (len(data) == item.get("size")
+                               and zf.getinfo(path).file_size == item.get("size"))
+                    sha_ok = hashlib.sha256(data).hexdigest() == str(item.get("sha256"))
+                    good = size_ok and sha_ok
+                    log.info("verify file %-22s %s(size=%s sha256=%s)", path,
+                             "OK" if good else "FAIL",
+                             "OK" if size_ok else "MISMATCH",
+                             "OK" if sha_ok else "MISMATCH")
+                    ok = ok and good
+                zf.extractall(tmp)
+        except (zipfile.BadZipFile, OSError) as e:
+            log.info("[错误] zip 打开/读取失败: %s", e)
+            return 1
+        ok = _compile_check(os.path.join(tmp, "engine", "netryx.py"),
+                            "engine/netryx.py") and ok
+        ok = _compile_check(os.path.join(tmp, "build.py"), "build.py") and ok
+        log.info("verify %s (%s)", "PASS" if ok else "FAIL", zip_path)
+        return 0 if ok else 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------- setup
+def run_setup():
+    """.venv 引导: 已存在则报就绪;否则创建 venv 并 pip install pytest(各 300s 超时)。"""
+    py = _venv_python()
+    if py:
+        log.info("setup: .venv 已就绪 (%s)", py)
+        return 0
+    venv_dir = os.path.join(ROOT, ".venv")
+    log.info("setup: 创建 .venv ...")
+    code, out = _run([sys.executable, "-m", "venv", venv_dir], timeout=300)
+    if code != 0:
+        log.info("[错误] venv 创建失败(rc=%d): %s", code, out[-400:])
+        log.info("[指引] 检查 Python 是否可执行后重试: %s -m venv .venv", sys.executable)
+        return 2
+    py = _venv_python()
+    if not py:
+        log.info("[错误] venv 已创建但未找到解释器 %s", venv_dir)
+        return 2
+    log.info("setup: 安装 pytest ...")
+    code, out = _run([py, "-m", "pip", "install", "pytest"], timeout=300)
+    if code != 0:
+        log.info("[错误] pip install pytest 失败(rc=%d): %s", code, out[-400:])
+        log.info("[指引] 检查网络/镜像后重试: %s -m pip install pytest "
+                 "(可加 -i https://pypi.tuna.tsinghua.edu.cn/simple)", py)
+        return 2
+    log.info("setup: .venv 就绪, pytest 安装完成")
+    return 0
+
+
 # ---------------------------------------------------------------- main
+USAGE = "build.py <check|test|smoke|pack|verify [zip]|setup|clean|log|all>"
+
+
 def main():
     _setup_logging()
     cmd = sys.argv[1] if len(sys.argv) > 1 else "check"
@@ -195,6 +558,14 @@ def main():
         return run_check()
     if cmd == "test":
         return run_test()
+    if cmd == "smoke":
+        return run_smoke()
+    if cmd == "pack":
+        return run_pack()
+    if cmd == "verify":
+        return run_verify(sys.argv[2] if len(sys.argv) > 2 else None)
+    if cmd == "setup":
+        return run_setup()
     if cmd == "clean":
         return run_clean()
     if cmd == "log":
@@ -202,9 +573,10 @@ def main():
     if cmd == "all":
         rc = run_check()
         rc = rc or run_test()
-        rc = rc or run_log(show=False)
+        rc = rc or run_pack()
+        rc = rc or run_verify()
         return rc
-    log.info("unknown cmd %r; usage: build.py <check|test|clean|log|all>", cmd)
+    log.info("unknown cmd %r; usage: %s", cmd, USAGE)
     return 1
 
 
