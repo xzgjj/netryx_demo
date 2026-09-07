@@ -7,7 +7,7 @@
   是否到位、坏数据目录是否给出修复指引、报告完整性、引擎启动-就绪-停止契约
   是否成立。
 
-场景(S1-S5,见 scenarios()):
+场景(S1-S7,见 scenarios()):
   S1 健康体检:   launch.py --check-only -> 退出码 0,报告"全部检查通过";
   S2 端口占用:   演练内用 socket 占住 9999,再 --check-only --port 9999
                  -> 退出码 1,输出含"换端口/占用"提示(演练结束即释放端口);
@@ -15,7 +15,13 @@
                  -> 退出码 2,输出含"数据目录"修复指引(演练后清理临时文件);
   S4 报告完整性: --check-only 输出含"手机访问地址"与"admin/admin";
   S5 引擎契约:   launcher_engine.start_engine + wait_ready + stop_engine
-                 在小端口 9998 全链演练 -> ok=True;残留检测(端口无 LISTENING)。
+                 在小端口 9998 全链演练 -> ok=True;残留检测(端口无 LISTENING);
+  S6 主网卡引导: --check-only 输出须含"主网卡建议"与"手机访问地址 http://",
+                 且不含"未识别主网卡"——多网卡/虚拟网卡场景下验证用户被引导
+                 到正确地址(本机 3 网卡,应打出建议);
+  S7 快速失败:   tcp_probe 对空闲端口 9997 判"未监听";wait_ready 对"引擎启动
+                 即失败"的进程在 3 秒内返回 False——验证未就绪路径快速失败
+                 (不空等 30s;不启动真实引擎,quick 下也演练)。
 
 实现要点:
   - 所有子进程统一 [sys.executable, "-X", "utf8", ...] + 显式超时(单场景 120s),
@@ -33,8 +39,8 @@
 
 运行:
   python -X utf8 scripts\\verifier_launcher.py [--only S2,S4] [--quick]
-    --only   仅演练指定场景(逗号分隔;按名字,如 "S2 端口占用"/"S2",或序号 1-5);
-    --quick  跳过 S5(引擎全链最慢,约 5-10 秒)。
+    --only   仅演练指定场景(逗号分隔;按名字,如 "S2 端口占用"/"S2",或序号 1-7);
+    --quick  跳过 S5(引擎全链最慢,约 5-10 秒;S7 无真实引擎,quick 下也演练)。
 
 代码基线: Python 3.8+ 语法(未用 3.9+ 新语法,如 str.removeprefix / dict | dict);
 仅 import 标准库。
@@ -56,6 +62,8 @@ LOG_DIR = os.path.join(ROOT, "log")
 SCENARIO_TIMEOUT = 120.0      # 单场景子进程超时(秒)
 ENGINE_PORT = 9998            # S5 演练端口(避开默认 8765,不与现有服务冲突)
 BUSY_PORT = 9999              # S2 占位端口(仅演练内)
+SMOKE_IDLE_PORT = 9997        # S7 冒烟: 已知空闲端口(不启动任何服务)
+FAST_FAIL_LIMIT = 3.0         # S7 未就绪快速失败上限(秒)
 READY_TIMEOUT = 30.0          # S5 wait_ready 超时(秒)
 TAIL_LINES = 12               # 场景输出尾部展示行数
 RELEASE_TIMEOUT = 6.0         # S5 停止后残留检测等待(秒)
@@ -231,13 +239,60 @@ def sc_engine_contract(port=ENGINE_PORT, ready_timeout=READY_TIMEOUT):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def sc_main_nic_guidance():
+    """S6 主网卡引导: --check-only 输出须给出主网卡建议与手机访问地址。
+
+    本机多网卡(含虚拟网卡)时,launcher_env.render_report 应为选中的主网卡
+    打 [主网卡建议] 标记,并给出"手机访问地址: http://<IP>:<port>";
+    断言在注册表 expect_hint 中: 同时命中"主网卡建议/手机访问地址/http://",
+    且不含"未识别主网卡"(避免用户被引导到虚拟网卡段)。
+    """
+    return run_launcher(["--check-only"])
+
+
+def sc_fast_fail_not_ready(port=SMOKE_IDLE_PORT, fast_limit=FAST_FAIL_LIMIT):
+    """S7 快速失败: 空闲端口判"未监听" + wait_ready 对未就绪路径快速返回 False。
+
+    两步(均不启动真实引擎,与 S5 分工):
+      1) tcp_probe(127.0.0.1, 9997) 应不可连接(判"未监听")——验证探测判据;
+      2) 用"已退出的一次性子进程"模拟引擎启动即失败,调 launcher_engine.
+         wait_ready(其快速失败分支: 进程已退出便立刻返回 False,不空等 30s),
+         须在 fast_limit(3s)内返回 False——验证"启动失败/未就绪"路径快速失败。
+    结构断言全在本函数内(不依赖提示文本,expect_hint 传 None);
+    返回 (0, 摘要);任一判定不满足返回 (1, 失败原因)。
+    """
+    engine = _load_engine_module()
+    ok, err = tcp_probe("127.0.0.1", port, timeout=0.4)
+    if ok:
+        return 1, ("前置检查失败: 端口 %d 已被监听(%s),无法演练未监听判定"
+                   % (port, err))
+    try:
+        proc = subprocess.Popen([sys.executable, "-c", "pass"],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+        proc.wait(timeout=5)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 1, "无法准备模拟子进程: %s" % exc
+    started = time.time()
+    ready_ok, ready_msg = engine.wait_ready(proc, port, timeout=READY_TIMEOUT)
+    elapsed = time.time() - started
+    if ready_ok:
+        return 1, "快速失败契约被破坏: 未启动的端口被判为就绪(%s)" % ready_msg
+    if elapsed >= fast_limit:
+        return 1, ("快速失败契约未满足: wait_ready 耗时 %.1fs(要求 <%.1fs): %s"
+                   % (elapsed, fast_limit, ready_msg))
+    return 0, ("接口冒烟通过: 端口 %d 未监听(探测判据 ok);wait_ready 对已退出"
+               "进程 %.1f 秒内返回 False(%s)" % (port, elapsed, ready_msg))
+
+
 # ------------------------------------------------------------------ 注册表
 def scenarios():
-    """场景注册表: 每项 {name, fn, expect_rc, expect_hint}(S1-S5,依序执行)。
+    """场景注册表: 每项 {name, fn, expect_rc, expect_hint}(S1-S7,依序执行)。
 
     fn 返回 (实际退出码, 输出文本);expect_rc 为预期退出码;
     expect_hint 为提示判定规格(见 match_hint: 字符串 / ("any", [...]) /
-    ("all", [...]))。
+    ("all", [...]) / ("none", [...]) / 复合元组);None 表示纯结构化断言
+    (场景 fn 内部自判,不查提示文本,如 S7)。
     """
     return [
         {"name": "S1 健康体检", "fn": sc_check_only, "expect_rc": 0,
@@ -250,6 +305,11 @@ def scenarios():
          "expect_hint": ("all", ["手机访问地址", "admin/admin"])},
         {"name": "S5 引擎契约", "fn": sc_engine_contract, "expect_rc": 0,
          "expect_hint": ("all", ["已就绪", "无 LISTENING"])},
+        {"name": "S6 主网卡引导", "fn": sc_main_nic_guidance, "expect_rc": 0,
+         "expect_hint": (("all", ["主网卡建议", "手机访问地址", "http://"]),
+                         ("none", ["未识别主网卡"]))},
+        {"name": "S7 快速失败", "fn": sc_fast_fail_not_ready, "expect_rc": 0,
+         "expect_hint": None},
     ]
 
 
@@ -258,24 +318,31 @@ def match_hint(spec, output):
     """expect_hint 命中判定(大小写不敏感;中文按原文匹配)。
 
     spec 形式:
-      字符串                 -> 输出须包含该文本;
-      ("any", [文本, ...])   -> 至少一个文本命中(如 S2 的"换端口/占用");
-      ("all", [文本, ...])   -> 全部文本命中(如 S4 的"手机访问地址"+"admin/admin")。
+      字符串                  -> 输出须包含该文本;
+      ("any", [文本, ...])    -> 至少一个文本命中(如 S2 的"换端口/占用");
+      ("all", [文本, ...])    -> 全部文本命中(如 S4 的"手机访问地址"+"admin/admin");
+      ("none", [文本, ...])   -> 全部文本都不命中(如 S6 禁止出现"未识别主网卡");
+      (子规格, 子规格, ...)    -> 复合约束: 每个子规格都须命中(如 S6 的
+                                 "必须出现 + 禁止出现"组合;首个元素是 tuple 即复合)。
     """
     text = (output or "").lower()
     if isinstance(spec, str):
         return spec.lower() in text
+    if isinstance(spec[0], tuple):  # 复合约束: 全部子规格成立
+        return all(match_hint(sub, output) for sub in spec)
     mode, items = spec[0], [str(item) for item in spec[1]]
     lowered = [item.lower() for item in items]
     if mode == "any":
         return any(item in text for item in lowered)
+    if mode == "none":
+        return not any(item in text for item in lowered)
     if mode == "all":
         return all(item in text for item in lowered)
     raise ValueError("未知 hint 模式: %r" % (mode,))
 
 
 def select_scenarios(tokens, registry=None):
-    """按 --only 过滤: token 为序号(1-5)或场景名(完整名或 "S2" 前缀,大小写不敏感)。
+    """按 --only 过滤: token 为序号(1-7)或场景名(完整名或 "S2" 前缀,大小写不敏感)。
 
     返回 (selected, unknown):selected 保持注册表顺序且去重;unknown 为未识别
     token 列表(调用方提示后忽略)。
@@ -330,7 +397,11 @@ def write_report(report, log_dir=None, timestamp=None):
 # ------------------------------------------------------------------ 执行
 def run_scenario(item, timeout=SCENARIO_TIMEOUT):
     """执行单个场景,返回 {name, passed, rc_actual, rc_expect, hint_found,
-    hint_expect, out_tail};场景自身异常按失败计(rc 置 None)。"""
+    hint_expect, out_tail};场景自身异常按失败计(rc 置 None)。
+
+    expect_hint 为 None 时表示纯结构化断言(场景 fn 内部自判,如 S7),
+    提示维度直接视为命中,不查输出文本。
+    """
     name = item["name"]
     expect_rc = item["expect_rc"]
     expect_hint = item["expect_hint"]
@@ -341,7 +412,7 @@ def run_scenario(item, timeout=SCENARIO_TIMEOUT):
         output = "[演练异常] %s: %s" % (type(exc).__name__, exc)
     output = output or ""
     lines = output.splitlines()
-    hint_found = match_hint(expect_hint, output)
+    hint_found = True if expect_hint is None else match_hint(expect_hint, output)
     passed = (rc == expect_rc) and hint_found
     return {"name": name, "passed": passed, "rc_actual": rc,
             "rc_expect": expect_rc, "hint_found": hint_found,
@@ -401,7 +472,7 @@ def _parse_args(argv=None):
         epilog="示例: python -X utf8 scripts\\verifier_launcher.py --quick\n"
                "      python -X utf8 scripts\\verifier_launcher.py --only S2,S4")
     parser.add_argument("--only", default="",
-                        help="仅演练指定场景(逗号分隔;按名字或序号 1-5)")
+                        help="仅演练指定场景(逗号分隔;按名字或序号 1-7)")
     parser.add_argument("--quick", action="store_true",
                         help="跳过 S5(引擎全链最慢)")
     return parser.parse_args(argv)
