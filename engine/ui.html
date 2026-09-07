@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Netryx — Network Intelligence</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAzMiAzMic+PHJlY3Qgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJyByeD0nNycgZmlsbD0nIzBkMTExNycvPjxjaXJjbGUgY3g9JzE2JyBjeT0nMTYnIHI9JzExJyBmaWxsPSdub25lJyBzdHJva2U9JyMzMDM2M2QnIHN0cm9rZS13aWR0aD0nMicvPjxjaXJjbGUgY3g9JzE2JyBjeT0nMTYnIHI9JzcnIGZpbGw9J25vbmUnIHN0cm9rZT0nIzFmNmZlYicgc3Ryb2tlLXdpZHRoPScyJy8+PGNpcmNsZSBjeD0nMTYnIGN5PScxNicgcj0nMycgZmlsbD0nIzU4YTZmZicvPjwvc3ZnPg==">
+<script>(function(){try{var t=localStorage.getItem('ns_theme');if(t!=='light'&&t!=='dark'&&t!=='medium')t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';document.documentElement.setAttribute('data-theme',t);}catch(_){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<style>
+:root{
+  /* GitHub Primer "dark dimmed" palette — softer/lighter than dark default */
+  --bg:#22272e; --bg2:#1c2128; --panel:#2d333b; --panel2:#373e47; --raise:#444c56;
+  --border:#444c56; --line:#373e47; --text:#adbac7; --muted:#768390;
+  --faint:#636e7b; --cyan:#539bf5; --blue:#316dca; --amber:#c69026; --warm:#daaa3f;
+  --green:#57ab5a; --red:#e5534b; --violet:#986ee2;
+  --shadow:0 8px 24px rgba(1,4,9,.4); --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+  --edge-op:0.22;                        /* graph edge opacity — subtle on the dark canvas */
+  /* Controls: neutral grey borders, green primary, blue focus/links (GitHub convention). */
+  --primary:#347d39; --primary-hi:#46954a;
+  --ix:#539bf5;                          /* accent: slider / checkbox / focus base */
+  --ix-strong:#6cb6ff;
+  --ix-border:#444c56;                   /* neutral control border */
+  --ix-border-hi:#768390;                /* hover border */
+  --ix-bg:transparent;                   /* secondary buttons keep a solid panel bg */
+  --ix-bg-hi:#444c56;                    /* hover bg */
+  --ix-glow:0 0 0 3px rgba(83,155,245,.40);          /* blue focus ring */
+  --ix-glow-soft:none;
+}
+/* GitHub Primer "light" — applied when data-theme=light (toggle / OS preference) */
+html[data-theme="light"]{
+  --bg:#ffffff; --bg2:#ffffff; --panel:#f6f8fa; --panel2:#eaeef2; --raise:#d8dee4;
+  --border:#d0d7de; --line:#d8dee4; --text:#1f2328; --muted:#656d76;
+  --faint:#818b98; --cyan:#0969da; --blue:#0969da; --amber:#9a6700; --warm:#bf8700;
+  --green:#1a7f37; --red:#cf222e; --violet:#8250df;
+  --shadow:0 8px 24px rgba(140,149,159,.2); --edge-op:0.55;  /* light bg → coloured edges need more opacity */
+  --primary:#1f883d; --primary-hi:#1a7f37;
+  --ix:#0969da; --ix-strong:#0550ae; --ix-border:#d0d7de; --ix-border-hi:#afb8c1;
+  --ix-bg:transparent; --ix-bg-hi:#eaeef2; --ix-glow:0 0 0 3px rgba(9,105,218,.3); --ix-glow-soft:none;
+}
+/* "Medium" — a soft blue-grey daylight palette sitting between dark-dimmed and light */
+html[data-theme="medium"]{
+  --bg:#d4dbe3; --bg2:#cad2db; --panel:#e2e7ed; --panel2:#eaeef2; --raise:#f0f3f6;
+  --border:#b0bac5; --line:#c2cad4; --text:#1c2128; --muted:#4a5560;
+  --faint:#6b7682; --cyan:#0a5cc0; --blue:#0a5cc0; --amber:#8a5d00; --warm:#a06800;
+  --green:#1a7f37; --red:#cf222e; --violet:#7c3fd4;
+  --shadow:0 8px 24px rgba(70,85,100,.25); --edge-op:0.6;  /* grey bg → coloured edges need more opacity */
+  --primary:#1f883d; --primary-hi:#1a7f37;
+  --ix:#0a5cc0; --ix-strong:#0550ae; --ix-border:#b0bac5; --ix-border-hi:#8b97a4;
+  --ix-bg:transparent; --ix-bg-hi:#dde3ea; --ix-glow:0 0 0 3px rgba(10,92,192,.3); --ix-glow-soft:none;
+}
+/* Light/medium fixes for the few chip/badge text colours hardcoded for dark */
+html:not([data-theme="dark"]) .chip,html:not([data-theme="dark"]) table.dev .pill,html:not([data-theme="dark"]) .srcbadge.src-cli{color:#57606a}
+html:not([data-theme="dark"]) .chip.web a,html:not([data-theme="dark"]) .badge.you{color:#0969da}
+html:not([data-theme="dark"]) .badge.chg,html:not([data-theme="dark"]) .chip.fresh,html:not([data-theme="dark"]) .pill.fresh{color:#1a7f37}
+html:not([data-theme="dark"]) .badge.rogue,html:not([data-theme="dark"]) .chip.rogueport,html:not([data-theme="dark"]) .evfeed .kind.rogue_device{color:#cf222e}
+html:not([data-theme="dark"]) .badge.drift,html:not([data-theme="dark"]) .evfeed .kind.new_open_port{color:#9a6700}
+html:not([data-theme="dark"]) .badge.dns,html:not([data-theme="dark"]) .svc .s{color:#8250df}
+html:not([data-theme="dark"]) .tier-critical{color:#cf222e}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--cyan);text-decoration:none}
+a:hover{text-decoration:underline}
+.mono{font-family:var(--mono)}
+::selection{background:rgba(83,155,245,.4)}
+button{font-family:inherit;font-size:13px;cursor:pointer;border:1px solid var(--border);
+  background:var(--panel2);color:var(--text);border-radius:6px;padding:8px 13px;transition:.15s;white-space:nowrap}
+button:hover{border-color:var(--ix-border-hi);color:var(--text);background:var(--raise)}
+button:focus-visible{outline:none;border-color:var(--blue);box-shadow:var(--ix-glow)}
+button:disabled{opacity:.5;cursor:not-allowed;background:var(--panel2);border-color:var(--border);box-shadow:none}
+button.primary{background:var(--primary);border:1px solid rgba(205,217,229,.1);color:#fff;font-weight:500}
+button.primary:hover{background:var(--primary-hi);color:#fff}
+button.ghost{background:transparent}
+button.sm{padding:6px 10px;font-size:12px}
+input[type=text],input[type=password],select,textarea{font-family:inherit;font-size:13px;background:var(--bg2);
+  border:1px solid var(--border);color:var(--text);border-radius:6px;padding:9px 11px;outline:none;transition:.15s}
+input[type=text]:focus,input[type=password]:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:var(--ix-glow)}
+label.chk{display:inline-flex;align-items:center;gap:7px;color:var(--muted);user-select:none;cursor:pointer;font-size:13px}
+label.chk input{accent-color:var(--ix);width:15px;height:15px}
+input[type=range]{accent-color:var(--ix);cursor:pointer}
+
+header{position:sticky;top:0;z-index:30;
+  background:var(--panel);
+  border-bottom:1px solid var(--border)}
+.hwrap{max-width:1560px;margin:0 auto;padding:13px 22px}
+.brand{display:flex;align-items:center;gap:13px}
+.mark{width:40px;height:40px;flex:0 0 auto}
+.brand h1{font-size:17px;margin:0;font-weight:700;letter-spacing:3px}
+.homelink{cursor:pointer}
+.homelink:hover{opacity:.8}
+.homelink:focus-visible{outline:none;box-shadow:0 0 0 2px var(--ix-border-hi);border-radius:4px}
+.brand .namerow{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.brand .tagsep{color:var(--faint);font-size:12px}
+.brand .tag{font-size:10.5px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;font-family:var(--mono)}
+.brand .tagline{font-size:9px;color:var(--faint);letter-spacing:1.4px;text-transform:uppercase;font-family:var(--mono)}
+.env{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.7}
+.env b{color:var(--cyan);font-weight:500}
+.panel{background:var(--panel);border:1px solid var(--border);
+  border-radius:6px;padding:14px 16px}
+.controls{display:flex;gap:11px;flex-wrap:wrap;align-items:center;margin-top:13px}
+.controls .grp{display:flex;gap:8px;align-items:center}
+.controls .sep{width:1px;height:26px;background:var(--border);margin:0 2px}
+.adv{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:11px;
+  padding-top:11px;border-top:1px dashed var(--border)}
+.ouibox{display:flex;align-items:center;gap:9px;margin-left:auto;font-size:12px;color:var(--muted)}
+.histbtn{margin-left:auto}
+.histbtn.active{background:var(--bg);border:1px solid var(--ix-border-hi);color:var(--text);font-weight:500}
+.dotled{width:7px;height:7px;border-radius:50%;background:var(--faint);box-shadow:0 0 7px currentColor}
+.dotled.on{background:var(--green);color:var(--green)}
+.bar{height:6px;border-radius:6px;background:var(--panel2);overflow:hidden;margin:13px 0 5px}
+.bar>i{display:block;height:100%;width:0;border-radius:6px;
+  background:linear-gradient(90deg,var(--blue),var(--cyan));transition:width .25s;box-shadow:0 0 12px rgba(83,155,245,.6)}
+.statusline{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;
+  font-family:var(--mono);flex-wrap:wrap;gap:8px}
+.statusline .ph{display:flex;align-items:center;gap:8px}
+.spin{width:11px;height:11px;border:2px solid rgba(83,155,245,.25);border-top-color:var(--cyan);
+  border-radius:50%;animation:spin .7s linear infinite;display:none}
+.spin.on{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+main{max-width:1560px;margin:0 auto;padding:18px 22px 70px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:16px 0}
+.stat{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:13px;
+  padding:14px 16px;overflow:hidden}
+.stat::after{content:"";position:absolute;right:-20px;top:-20px;width:64px;height:64px;border-radius:50%;
+  background:radial-gradient(circle,var(--glow,rgba(83,155,245,.18)),transparent 70%)}
+.stat .n{font-size:27px;font-weight:800;font-family:var(--mono);letter-spacing:-1px}
+.stat .l{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:1.4px;margin-top:2px}
+
+.viewbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:11px 0;margin:8px 0 16px}
+.viewbar.mapopen{border-bottom:none;padding-bottom:0;margin-bottom:0}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:3px}
+.seg button{border:1px solid transparent;background:transparent;border-radius:5px;padding:6px 13px;color:var(--muted);font-weight:500;transition:.12s;box-shadow:none}
+.seg button:hover{background:var(--raise);color:var(--text);box-shadow:none}
+.seg button.active{background:var(--bg);border-color:var(--border);color:var(--text)}
+.seg button.active:hover{background:var(--bg);border-color:var(--border);color:var(--text)}
+.viewbar .spacer{flex:1}
+.tool{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.tool input[type=text]{min-width:230px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(335px,1fr));gap:14px}
+.card{position:relative;background:var(--panel);
+  border:1px solid var(--border);border-radius:6px;padding:15px 16px;overflow:hidden;
+  contain:content;transition:border-color .15s}
+.card:hover{border-color:var(--ix-border-hi)}
+.card.isnew{border-color:rgba(87,171,90,.55);box-shadow:0 0 0 1px rgba(87,171,90,.25)}
+.card .glowedge{position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent,var(--cyan));opacity:.85}
+.card .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.card .idn{display:flex;gap:11px;align-items:center;min-width:0}
+.ico{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:var(--panel2);
+  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--accent,var(--cyan))}
+.nm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ipv{font-family:var(--mono);color:var(--cyan);font-size:12.5px}
+.badges{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--panel2);
+  border:1px solid var(--border);color:#bcd0ee;white-space:nowrap;letter-spacing:.3px}
+.badge.new{background:rgba(87,171,90,.16);color:var(--green);border-color:rgba(87,171,90,.4)}
+.badge.gw{background:rgba(198,144,38,.15);color:var(--amber);border-color:rgba(198,144,38,.4)}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:12px 0 4px;font-size:12.5px}
+.meta .k{color:var(--muted)}
+.meta .v{word-break:break-word}
+.svc{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.svc .s{font-size:10.5px;padding:2px 7px;border-radius:6px;background:rgba(152,110,226,.12);
+  color:#c3b9ff;border:1px solid rgba(152,110,226,.3)}
+.ports{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.chip{font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:7px;background:var(--panel2);
+  border:1px solid var(--border);color:#c6d3e6}
+.chip.web{background:rgba(83,155,245,.1);border-color:rgba(83,155,245,.4)}
+.chip.web a{color:#8fe9ff}
+.noports{color:var(--faint);font-size:11.5px;margin-top:9px;font-family:var(--mono)}
+.cardbtns{display:flex;gap:7px;margin-top:13px;flex-wrap:wrap}
+
+.tablewrap{overflow:auto;border:1px solid var(--border);border-radius:13px;background:var(--panel)}
+table.dev{width:100%;border-collapse:collapse;font-size:13px}
+table.dev th,table.dev td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:normal;vertical-align:top}
+table.dev td.mono,table.dev th{white-space:nowrap}
+table.dev th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:600;
+  font-size:11px;text-transform:uppercase;letter-spacing:.8px;cursor:pointer;z-index:2;transition:.12s}
+table.dev th:hover{color:var(--cyan);background:var(--panel);text-decoration:underline;text-underline-offset:4px}
+table.dev tbody tr{cursor:pointer}
+table.dev tbody tr:hover{background:rgba(177,186,196,.08)}
+table.dev tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 var(--ix)}
+table.dev td.mono{font-family:var(--mono)}
+table.dev .pill{font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:6px;padding:1px 6px;margin:1px 2px 1px 0;display:inline-block}
+table.dev .pill.web{background:rgba(83,155,245,.1);border-color:rgba(83,155,245,.4)}
+table.dev td .pillwrap{display:flex;flex-wrap:wrap;align-items:center}
+
+.mapbar{padding:11px 0;border-bottom:1px solid var(--border);margin-bottom:16px}
+#topo{position:relative;border:1px solid var(--border);border-radius:14px;overflow:hidden;
+  background:var(--bg)}
+#svgwrap svg{display:block;width:100%;height:auto}
+/* Graph edges keep their per-device-type colour (set inline); only the opacity is theme-aware,
+   so the coloured spokes stay visible on light/medium backgrounds without ever going grey. */
+#edges line{stroke-opacity:var(--edge-op);stroke-width:1.2}
+.tnode{cursor:pointer}
+.tnode circle.hit{transition:r .12s}
+.tnode:hover .pulse{opacity:.9}
+.tlabel{font-family:var(--mono);fill:var(--muted);font-size:9px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--border);
+  border-radius:9px;padding:8px 11px;font-size:12px;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;z-index:5;max-width:240px}
+.tip .ti{font-weight:700;margin-bottom:3px}
+.tip .tm{font-family:var(--mono);color:var(--muted);font-size:11px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:11px 14px;border-top:1px solid var(--border);
+  font-size:11.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.lg{width:9px;height:9px;border-radius:50%}
+.mapkey{position:absolute;top:10px;left:10px;z-index:6;max-width:240px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  font-size:11.5px;color:var(--muted);box-shadow:var(--shadow)}
+.mapkey .hd{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:7px 11px;cursor:pointer;user-select:none;color:var(--text);font-weight:500;letter-spacing:.3px}
+.mapkey .hd #mapkey-chev{color:var(--ix);font-size:12px}
+.mapkey .body{padding:2px 11px 9px;display:flex;flex-direction:column;gap:6px}
+.mapkey.collapsed .body{display:none}
+.mapkey .row{display:flex;align-items:center;gap:8px;line-height:1.25;white-space:nowrap}
+.mapkey .row svg{flex:0 0 auto;width:22px;height:22px}
+.mapkey .row.note{color:var(--faint);font-size:10.5px;margin-top:3px;line-height:1.35;white-space:normal}
+/* Floating expand/collapse control — mirrors the Key panel, pinned to the top-right of the map */
+.mapbtn{position:absolute;top:10px;right:10px;z-index:6;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;padding:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.mapbtn:hover{border-color:var(--ix-border-hi);background:var(--raise)}
+.mapbtn:focus-visible{outline:none;border-color:var(--blue);box-shadow:var(--ix-glow)}
+.mapbtn svg{display:block}
+
+.empty{text-align:center;color:var(--muted);padding:64px 20px}
+.empty svg{opacity:.5;margin-bottom:14px}
+.hint{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+
+.modal-bg{position:fixed;inset:0;background:rgba(4,7,12,.7);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:60}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;width:min(460px,93vw);box-shadow:var(--shadow)}
+.modal h3{margin:0 0 4px;font-size:17px}
+.modal .sub{color:var(--muted);font-family:var(--mono);font-size:12px;margin-bottom:14px}
+.modal label{display:block;color:var(--muted);font-size:11.5px;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.6px}
+.modal input,.modal textarea{width:100%;background:var(--bg2);border:1px solid var(--ix-border);
+  color:var(--text);border-radius:9px;padding:10px;font-family:inherit;font-size:14px}
+.modal textarea{min-height:72px;resize:vertical}
+.modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.toast{position:fixed;bottom:22px;right:22px;z-index:80;display:flex;flex-direction:column;gap:9px}
+.toast .t{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--cyan);
+  padding:11px 15px;border-radius:10px;box-shadow:var(--shadow);animation:sl .3s;max-width:330px;font-size:13px}
+.toast .t.green{border-left-color:var(--green)} .toast .t.red{border-left-color:var(--red)}
+.toast .t.amber{border-left-color:var(--amber)}
+@keyframes sl{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.firstrun{margin-top:14px;padding:12px 14px;border:1px dashed var(--border);border-radius:11px;
+  color:var(--muted);font-size:12.5px;background:rgba(83,155,245,.04)}
+/* new-since-last-scan highlighting */
+.chip.fresh{background:rgba(87,171,90,.18);border-color:rgba(87,171,90,.55);color:#9af0cf}
+.chip.web.fresh{background:rgba(87,171,90,.18)}
+.pill.fresh{background:rgba(87,171,90,.18)!important;border-color:rgba(87,171,90,.55)!important;color:#9af0cf}
+.badge.chg{background:rgba(87,171,90,.16);color:#7ee7b8;border-color:rgba(87,171,90,.45)}
+.badge.you{background:rgba(83,155,245,.16);color:#8fe9ff;border-color:rgba(83,155,245,.45)}
+.badge.dns{background:rgba(152,110,226,.16);color:#c3b9ff;border-color:rgba(152,110,226,.45)}
+.badge.rnd{background:rgba(198,144,38,.14);color:#daaa3f;border-color:rgba(198,144,38,.4)}
+th .ar{color:var(--ix);font-size:10px}
+/* stop button + flash + inline editor */
+button.stop{background:#c93c37!important;border:1px solid rgba(205,217,229,.1)!important;color:#fff!important;font-weight:500}
+.card.flash{animation:cardflash 1.6s ease-out}
+@keyframes cardflash{0%{box-shadow:0 0 0 2px var(--cyan),0 0 26px rgba(83,155,245,.5)}100%{box-shadow:none}}
+/* Lift the focused card above its neighbours so the pulse glow shows evenly on all sides. */
+.card.target{border-color:var(--accent,var(--cyan))!important;animation:targetpulse 1s ease-in-out 4;z-index:5}
+@keyframes targetpulse{
+  0%,100%{box-shadow:0 0 0 2px var(--accent,var(--cyan)),0 0 16px var(--accent,var(--cyan))}
+  50%{box-shadow:0 0 0 3px var(--accent,var(--cyan)),0 0 30px var(--accent,var(--cyan)),0 0 60px var(--accent,var(--cyan))}}
+.card.editing{border-color:var(--border)}
+.celbl{display:block;color:var(--muted);font-size:10.5px;margin:11px 0 4px;text-transform:uppercase;letter-spacing:.7px}
+.ceinput{width:100%;background:var(--bg2);border:1px solid var(--ix-border);color:var(--text);
+  border-radius:8px;padding:8px 9px;font-family:inherit;font-size:13px;outline:none;transition:.15s}
+.ceinput:focus{border-color:var(--ix-border-hi);box-shadow:var(--ix-glow)}
+textarea.ceinput{min-height:58px;resize:vertical}
+.wsel{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.targets{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.targets .tg{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+.targets .tg b{color:var(--cyan);font-weight:500}
+/* baseline / events / security panel */
+.rightgrp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.viewnav{display:flex;gap:8px;align-items:center}
+.navbtn.active{background:var(--bg);border:1px solid var(--ix-border-hi);color:var(--text);font-weight:500}
+.blchip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);font-family:var(--mono);
+  padding:6px 11px;border:1px solid var(--ix-border);border-radius:9px;background:var(--ix-bg);cursor:pointer;white-space:nowrap;transition:.15s}
+.blchip:hover{border-color:var(--ix-border-hi);background:var(--ix-bg-hi);box-shadow:var(--ix-glow-soft)}
+.blchip .d{width:7px;height:7px;border-radius:50%;background:var(--faint);box-shadow:0 0 7px currentColor}
+.blchip .d.on{background:var(--green);color:var(--green)}
+.blchip .d.warn{background:var(--red);color:var(--red)}
+.evbadge{display:inline-flex;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--red);
+  color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;margin-left:6px}
+.badge.rogue{background:rgba(229,83,75,.18);color:#ff9a93;border-color:rgba(229,83,75,.55)}
+.badge.drift{background:rgba(198,144,38,.16);color:#f0c674;border-color:rgba(198,144,38,.45)}
+.chip.rogueport,.pill.rogueport{background:rgba(229,83,75,.18)!important;border-color:rgba(229,83,75,.6)!important;color:#ff9a93!important}
+.card.isrogue{border-color:rgba(229,83,75,.55)!important;box-shadow:0 0 0 1px rgba(229,83,75,.3)}
+.secpanel{display:grid;gap:14px}
+.seccard{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.seccard h3{margin:0 0 4px;font-size:15px}
+.seccard .sub{color:var(--muted);font-size:12.5px;margin-bottom:12px;line-height:1.5}
+.secrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bigstat{display:flex;gap:26px;flex-wrap:wrap;margin:8px 0 2px}
+.bigstat .x{display:flex;flex-direction:column}
+.bigstat .x b{font-size:23px;font-family:var(--mono);font-weight:800;line-height:1.1}
+.bigstat .x span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+.tier-critical{color:#ff6a60}.tier-high{color:#e5534b}.tier-medium{color:#c69026}.tier-low{color:#986ee2}.tier-none{color:var(--muted)}
+.evfeed .kind{font-family:var(--mono);font-size:10.5px;padding:2px 9px;border-radius:20px;border:1px solid var(--border)}
+.livedot{font-size:11px;font-family:var(--mono);margin-left:10px;font-weight:500}
+.livedot.on{color:var(--green)} .livedot.off{color:var(--muted)}
+.evfeed .kind.rogue_device{background:rgba(229,83,75,.16);color:#ff9a93;border-color:rgba(229,83,75,.5)}
+.evfeed .kind.new_open_port{background:rgba(198,144,38,.16);color:#f0c674;border-color:rgba(198,144,38,.45)}
+.secwarn{margin:0 0 14px;padding:11px 15px;border:1px solid rgba(198,144,38,.5);border-radius:11px;
+  background:rgba(198,144,38,.1);color:#f0c674;font-size:12.5px;display:flex;align-items:flex-start;gap:10px;line-height:1.5}
+.secwarn b{color:#ffd98a}
+.tokrow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:11px 0;border-bottom:1px solid var(--line)}
+.tokrow:last-of-type{border-bottom:none}
+.tokmeta{min-width:0}
+.tokmeta .nm{font-weight:600;font-size:13.5px}
+.tokmeta .mm{color:var(--muted);font-size:11px;font-family:var(--mono);margin-top:2px}
+.tokval{display:flex;gap:7px;align-items:center;margin-top:7px}
+.tokval input{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--ix-border);color:#cfe0f5;
+  border-radius:7px;padding:6px 9px;font-family:var(--mono);font-size:11.5px}
+.tokform{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.tokform input[type=text],.tokform input[type=password]{background:var(--bg2);border:1px solid var(--ix-border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px}
+.tokform input.days{width:150px}
+.schedrow{display:flex;align-items:center;gap:12px;margin:4px 0}
+.schedlbl{color:var(--muted);font-size:13px;min-width:42px}
+.schedopts{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:12px}
+#sched-slider{accent-color:var(--ix);height:4px;cursor:pointer}
+.schedopts select,#sched-targets,#sched-profile,#sched-workers{background:var(--bg2);border:1px solid var(--ix-border);color:var(--text);border-radius:8px;padding:7px 9px;font-size:13px}
+.srcbadge{display:inline-block;font-size:10.5px;font-family:var(--mono);padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);letter-spacing:.3px}
+.srcbadge.src-manual{color:var(--cyan);border-color:rgba(83,155,245,.4)}
+.srcbadge.src-monitor{color:var(--violet);border-color:rgba(152,110,226,.4)}
+.srcbadge.src-schedule{color:var(--green);border-color:rgba(87,171,90,.4)}
+.srcbadge.src-mcp{color:var(--warm);border-color:rgba(218,170,63,.4)}
+.srcbadge.src-api{color:var(--blue);border-color:rgba(59,130,246,.4)}
+.srcbadge.src-cli{color:#bcd0ee}
+.srcbadge.src-stopped{color:var(--red);border-color:rgba(229,83,75,.4)}
+.snip{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+  font-family:var(--mono);font-size:11.5px;color:#bcd0ee;white-space:pre-wrap;word-break:break-all;margin-top:6px}
+/* ---- mobile adapter (added: narrow-screen fixes so phone browsers are usable) ---- */
+@media (max-width:760px){
+  .controls .grp{flex-wrap:wrap;width:100%}
+  .controls .grp:first-child{display:grid;grid-template-columns:1fr}
+  #subnet{width:100% !important;min-width:0;box-sizing:border-box}
+  #scanbtn{width:100%;justify-content:center;padding:10px 12px}
+  .controls .sep{display:none}
+  .rightgrp{width:100%;flex-wrap:wrap}
+  .namerow{flex-wrap:wrap;gap:4px;row-gap:2px}
+  .tagline{display:none}
+  main{padding:12px 10px 60px}
+  .hwrap{padding:10px 12px}
+  .stats{gap:10px}
+}
+</style>
+</head>
+<body>
+<header>
+ <div class="hwrap">
+  <div class="brand">
+    <svg class="mark homelink" viewBox="0 0 40 40" fill="none" aria-hidden="true" onclick="setView('map')" style="cursor:pointer" title="Back to map view">
+      <circle cx="20" cy="20" r="18" stroke-width="1" style="stroke:var(--cyan);opacity:.45"/>
+      <circle cx="20" cy="20" r="12" stroke-width="1" style="stroke:var(--cyan);opacity:.6"/>
+      <circle cx="20" cy="20" r="6" stroke-width="1" style="stroke:var(--cyan)"/>
+      <line x1="20" y1="2" x2="20" y2="38" style="stroke:var(--border)"/>
+      <line x1="2" y1="20" x2="38" y2="20" style="stroke:var(--border)"/>
+      <circle cx="20" cy="20" r="3" style="fill:var(--amber)"/>
+      <circle cx="32" cy="20" r="1.7" style="fill:var(--cyan)"/>
+      <circle cx="14" cy="8" r="1.7" style="fill:var(--cyan)"/>
+      <circle cx="9" cy="27" r="1.7" style="fill:var(--blue)"/>
+      <circle cx="28" cy="31" r="1.7" style="fill:var(--cyan)"/>
+    </svg>
+    <div>
+      <div class="namerow"><h1 class="homelink" onclick="setView('map')" onkeydown="if(event.key==='Enter')setView('map')" role="link" tabindex="0" title="Back to map view">NETRYX</h1><span class="tagsep">·</span><span class="tag">Network Intelligence</span><span class="tagline">› Discover · Monitor · Automate</span></div>
+    </div>
+    <div class="env" id="env">locating network…</div>
+    <button id="themebtn" class="ghost sm" onclick="toggleTheme()" title="Cycle theme · dark › medium › light" aria-label="Cycle theme between dark, medium and light" style="margin-left:12px;padding:6px 8px;line-height:0;align-self:center">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="display:block"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5 A6.5 6.5 0 0 1 8 14.5 Z" fill="currentColor"/></svg>
+    </button>
+  </div>
+ </div>
+</header>
+
+<main>
+  <div class="secwarn" id="secwarn" style="display:none"></div>
+  <div class="panel">
+    <div class="controls">
+      <div class="grp">
+        <input type="text" id="subnet" placeholder="192.168.1.0/24, 10.0.0.5, 10.20.1.1-50" size="34" title="One or more targets (comma/space separated): CIDRs like 192.168.1.0/24, single IPs like 10.0.0.5, or ranges like 10.20.1.1-50">
+        <button class="primary" id="scanbtn" onclick="startScan()">Scan network</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <label class="chk" title="Also probe each device's ports during discovery"><input type="checkbox" id="scanports" onchange="saveScanPorts()"> Scan ports</label>
+        <select id="profile" title="Port-scan depth">
+          <option value="quick">Quick · ~90 ports</option>
+          <option value="extended">Extended · 1–1024</option>
+          <option value="full">Full · 1–65535</option>
+        </select>
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <label class="chk" title="Re-scan automatically on a timer"><input type="checkbox" id="monitor" onchange="toggleMonitor()"> Live monitor</label>
+        <select id="interval" title="Re-scan interval">
+          <option value="60">1 min</option><option value="120">2 min</option>
+          <option value="300" selected>5 min</option><option value="600">10 min</option>
+        </select>
+        <label class="chk" title="Show a desktop notification when new devices appear"><input type="checkbox" id="notify" onchange="toggleNotify()"> Desktop alerts</label>
+      </div>
+      <div class="rightgrp">
+        <span class="blchip" id="blchip" onclick="setView('events')" title="Known-good baseline status — click to manage"><span class="d" id="bldot"></span><span id="bltxt">Baseline: off</span></span>
+        <button id="signout" class="ghost navbtn" style="display:none" onclick="signOut()">Sign out</button>
+      </div>
+    </div>
+    <div class="adv">
+      <label class="chk" title="Discover Chromecast / AirPlay / printers / Apple names"><input type="checkbox" id="usemdns" checked> mDNS / Bonjour</label>
+      <label class="chk" title="Query managed switches, printers & APs via SNMP"><input type="checkbox" id="usesnmp" checked> SNMP</label>
+      <span class="wsel" title="Scan concurrency. Auto scales with your CPU count and scan depth.">Workers
+        <select id="workers">
+          <option value="auto" selected>Auto</option>
+          <option value="128">128</option>
+          <option value="256">256</option>
+          <option value="500">500</option>
+          <option value="800">800</option>
+          <option value="1000">1000</option>
+        </select>
+      </span>
+      <div class="ouibox">
+        <span class="dotled" id="ouiled"></span>
+        <span id="ouitxt">Vendor DB: built-in</span>
+        <button class="sm ghost" id="ouibtn" onclick="downloadOui()" title="Download the full IEEE OUI database for complete vendor names">Download full</button>
+      </div>
+    </div>
+    <div class="bar"><i id="progbar"></i></div>
+    <div class="statusline">
+      <span class="ph"><span class="spin" id="spin"></span><span id="phase">Idle — ready to scan</span></span>
+      <span id="progtxt"></span>
+    </div>
+    <div class="targets" id="targets"></div>
+    <div class="firstrun" id="firstrun">
+      Tip: your subnet is detected automatically — just press <b>Scan network</b>. For the richest results,
+      run as Administrator and allow it through your firewall on private networks. Turn on
+      <b>Scan ports</b> to map services and get clickable web links.
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat" style="--glow:rgba(83,155,245,.18)"><div class="n" id="s-total">0</div><div class="l">Devices found</div></div>
+    <div class="stat" style="--glow:rgba(83,155,245,.18)"><div class="n" id="s-web">0</div><div class="l">With web UI</div></div>
+    <div class="stat" style="--glow:rgba(152,110,226,.18)"><div class="n" id="s-ports">0</div><div class="l">Open ports</div></div>
+    <div class="stat" style="--glow:rgba(87,171,90,.2)"><div class="n" id="s-new">0</div><div class="l">New devices</div></div>
+  </div>
+
+  <div class="viewbar">
+    <div class="seg">
+      <button id="v-map" class="active" onclick="setView('map')">Map</button>
+      <button id="v-table" onclick="setView('table')">Table</button>
+      <button id="v-cards" onclick="setView('cards')">Cards</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="tool">
+      <input type="text" id="search" placeholder="Search ip · name · vendor · mac · service · port" oninput="debouncedRender()">
+      <select id="sortby" onchange="setSortFromDropdown()">
+        <option value="ip">Sort: IP</option><option value="name">Sort: Name</option>
+        <option value="vendor">Sort: Vendor</option><option value="ports">Sort: Open ports</option>
+        <option value="type">Sort: Type</option><option value="mac">Sort: MAC</option><option value="os">Sort: OS</option>
+      </select>
+      <select id="filter" onchange="render()">
+        <option value="all">All</option><option value="web">Web UI only</option>
+        <option value="open">Has open ports</option><option value="new">New only</option>
+        <option value="named">Named only</option>
+      </select>
+      <button class="ghost sm" onclick="exportData('csv')">CSV</button>
+      <button class="ghost sm" onclick="exportData('json')">JSON</button>
+    </div>
+    <div class="seg">
+      <button id="v-events" onclick="setView('events')">Alerts<span class="evbadge" id="evbadge" style="display:none">0</span></button>
+      <button id="v-hist" onclick="setView('hist')">History</button>
+      <button id="v-audit" onclick="setView('audit')">Audit</button>
+      <button id="v-settings" onclick="setView('settings')" title="Security &amp; settings">⚙ Settings</button>
+    </div>
+  </div>
+
+  <div id="view-cards" style="display:none"><div class="grid" id="grid"></div></div>
+  <div id="view-table"><div class="tablewrap"><table class="dev" id="tbl"></table></div></div>
+  <div id="view-map" style="display:none">
+    <div class="mapbar" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div class="seg">
+        <button data-m="graph" class="active" onclick="setMapMode('graph')">Graph</button>
+        <button data-m="neighborhoods" onclick="setMapMode('neighborhoods')">Neighborhoods</button>
+        <button data-m="exposure" onclick="setMapMode('exposure')">Exposure</button>
+        <button data-m="changes" onclick="setMapMode('changes')">Changes</button>
+        <button data-m="ipgrid" onclick="setMapMode('ipgrid')">IP grid</button>
+      </div>
+      <span class="wsel" title="Choose what to label nodes with">Label
+        <select id="maplabel" onchange="setMapLabel(this.value)">
+          <option value="name">Name</option>
+          <option value="ip">IP (last octet)</option>
+          <option value="ipfull">IP (full)</option>
+          <option value="mac">MAC</option>
+          <option value="vendor">Vendor</option>
+          <option value="type">Type</option>
+          <option value="os">OS</option>
+          <option value="model">Model</option>
+          <option value="reach">Reach</option>
+          <option value="latency">Latency</option>
+          <option value="seen">Seen</option>
+          <option value="ports">Open ports</option>
+        </select>
+      </span>
+    </div>
+    <div id="topo">
+      <div class="tip" id="tip"></div>
+      <div class="mapkey" id="mapkey">
+        <div class="hd" onclick="toggleMapKey()"><span>Key</span><span id="mapkey-chev">▾</span></div>
+        <div class="body">
+          <div class="row"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="#8aa0bd" fill-opacity="0.22" stroke="#8aa0bd" stroke-width="2"/></svg>Group — click to expand</div>
+          <div class="row"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="#8aa0bd" fill-opacity="0.22" stroke="#8aa0bd" stroke-width="1"/></svg>Group — expanded</div>
+          <div class="row"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="5" fill="#539bf5"/></svg>Single device</div>
+          <div class="row"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9.5" fill="#57ab5a" opacity="0.28"/><circle cx="11" cy="11" r="5" fill="#539bf5"/></svg>New since last scan</div>
+          <div class="row"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.5" fill="none" stroke="#c69026" stroke-width="2" stroke-dasharray="4 3"/><circle cx="11" cy="11" r="5" fill="#539bf5"/></svg>New open port(s)</div>
+          <div class="row"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" fill="#c69026" opacity="0.16"/><circle cx="11" cy="11" r="6" fill="#daaa3f"/></svg>Gateway / router</div>
+          <div class="row note">Fill colour = device type (risk tier in Exposure mode)</div>
+        </div>
+      </div>
+      <button class="mapbtn" id="expandall" type="button" onclick="toggleExpandAll()"></button>
+      <div id="svgwrap"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+  <div id="view-hist" style="display:none">
+    <p class="hint">Every scan is saved locally. Load one to compare against your current view.</p>
+    <div class="tablewrap"><table class="dev" id="histtbl">
+      <thead><tr><th>When</th><th>Trigger</th><th>Subnet</th><th>Devices</th><th></th></tr></thead>
+      <tbody id="histbody"></tbody></table></div>
+  </div>
+  <div id="view-events" style="display:none">
+    <div class="secpanel" id="events-body"></div>
+  </div>
+  <div id="view-settings" style="display:none">
+    <div class="secpanel" id="settings-body"></div>
+  </div>
+  <div id="view-audit" style="display:none">
+    <div class="secpanel" id="audit-body"></div>
+  </div>
+
+  <div class="empty" id="empty">
+    <svg width="64" height="64" viewBox="0 0 40 40" fill="none">
+      <circle cx="20" cy="20" r="18" stroke="#203a5e"/><circle cx="20" cy="20" r="11" stroke="#203a5e"/>
+      <circle cx="20" cy="20" r="3" fill="#c69026"/>
+      <circle cx="31" cy="16" r="1.6" fill="#539bf5"/><circle cx="11" cy="26" r="1.6" fill="#316dca"/>
+    </svg>
+    <div>No survey yet. Set your subnet and press <b>Scan network</b> to begin mapping.</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+let devices=[], currentJob=null, pollTimer=null, monitorTimer=null;
+let view='table', lastKey='', searchT=null;
+let sortCol='ip', sortDir=1;       // 1 = ascending, -1 = descending
+let editingIp=null;                // device whose card is in inline-edit mode
+let scanning=false;
+let etaKey='', etaSamples=[];
+let baseline=null, ROGUE=new Set(), DRIFT=new Map();
+let appInfo=null;
+let liveMaxId=0, evtSrc=null, liveConnected=false;   // live event stream (SSE) state
+let mcpTimer=null;   // auto-refresh timer for the MCP activity panel
+
+const TYPE_META={
+  "Router / Gateway":{c:"#c69026"},"Network device":{c:"#c69026"},
+  "Media / Streaming":{c:"#986ee2"},"Media server (Plex)":{c:"#986ee2"},
+  "Printer":{c:"#6f7be0"},"Scanner":{c:"#6f7be0"},"IoT / Smart home":{c:"#57ab5a"},
+  "Camera":{c:"#e5534b"},"Apple device":{c:"#d6649a"},"Android device":{c:"#57ab5a"},
+  "Raspberry Pi":{c:"#e5534b"},"NAS / Storage":{c:"#316dca"},
+  "Windows PC / Server":{c:"#539bf5"},"Server":{c:"#316dca"},"Computer":{c:"#539bf5"},
+  "Web-enabled device":{c:"#539bf5"},"Device":{c:"#39afc4"}
+};
+function typeColor(t){return (TYPE_META[t]||TYPE_META["Device"]).c;}
+function icon(t){
+  const p={
+    "Router / Gateway":'<path d="M3 9h18M7 13v4M12 13v4M17 13v4M5 5h14a2 2 0 012 2v0a2 2 0 01-2 2H5a2 2 0 01-2-2v0a2 2 0 012-2z"/>',
+    "Network device":'<path d="M3 9h18M7 13v4M12 13v4M17 13v4M5 5h14a2 2 0 012 2v2H3V7a2 2 0 012-2z"/>',
+    "Printer":'<path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-4a2 2 0 012-2h16a2 2 0 012 2v4a2 2 0 01-2 2h-2M6 14h12v7H6z"/>',
+    "Media / Streaming":'<rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M10 10l5 3-5 3z"/>',
+    "Media server (Plex)":'<rect x="2" y="4" width="20" height="14" rx="2"/><path d="M10 10l5 3-5 3z"/>',
+    "IoT / Smart home":'<path d="M3 11l9-7 9 7M5 10v10h14V10"/>',
+    "Camera":'<path d="M2 7h4l2-2h8l2 2h4v13H2zM12 17a4 4 0 100-8 4 4 0 000 8z"/>',
+    "Apple device":'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
+    "Android device":'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
+    "NAS / Storage":'<rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/>',
+    "Windows PC / Server":'<rect x="2" y="3" width="20" height="13" rx="2"/><path d="M8 21h8M12 16v5"/>',
+    "Server":'<rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.01M7 17h.01"/>',
+    "Computer":'<rect x="2" y="3" width="20" height="13" rx="2"/><path d="M8 21h8M12 16v5"/>',
+    "Raspberry Pi":'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h10M7 13h6"/>',
+    "Web-enabled device":'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/>',
+    "Device":'<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2"/>'
+  };
+  return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+(p[t]||p["Device"])+'</svg>';
+}
+function esc(s){if(s===null||s===undefined)return '';return(''+s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function ipNum(ip){return ip.split('.').reduce((a,o)=>a*256+(+o),0);}
+function fmtDate(e){if(!e)return '';try{return new Date(e*1000).toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'});}catch(_){return '';}}
+function metaRow(k,v){return v?'<span class="k">'+esc(k)+'</span><span class="v">'+esc(v)+'</span>':'';}
+function ipToInt(ip){const p=(ip||'').trim().split('.');if(p.length!==4)return null;let n=0;for(const o of p){const v=+o;if(o===''||isNaN(v)||v<0||v>255)return null;n=n*256+v;}return n;}
+function targetError(str){
+  const toks=(str||'').split(/[\s,;]+/).filter(Boolean);
+  if(!toks.length)return 'Enter at least one target (IP or CIDR)';
+  for(const t of toks){
+    if(t.indexOf('/')>=0){
+      const m=t.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+      if(!m||ipToInt(m[1])===null)return 'Invalid CIDR: '+t;
+      const pfx=+m[2];
+      if(pfx>32)return 'Invalid prefix /'+pfx+' in '+t;
+      if(pfx<16)return t+' is too broad — only /16 to /32 are allowed';
+    }else if(t.indexOf('-')>=0){
+      const parts=t.split('-'); const a=ipToInt(parts[0]);
+      let b; if((parts[1]||'').indexOf('.')>=0)b=ipToInt(parts[1]);
+      else{const base=(parts[0]||'').split('.').slice(0,3).join('.');b=ipToInt(base+'.'+parts[1]);}
+      if(a===null||b===null)return 'Invalid range: '+t;
+      if(Math.abs(b-a)+1>65536)return 'Range '+t+' is too large — max a /16 (65,536 addresses)';
+    }else{
+      if(ipToInt(t)===null)return 'Invalid IP: '+t;
+    }
+  }
+  return null;
+}
+function toast(msg,kind){const t=document.createElement('div');t.className='t '+(kind||'');t.textContent=msg;
+  document.getElementById('toast').appendChild(t);setTimeout(()=>t.remove(),5200);}
+async function api(path,opts){opts=Object.assign({cache:'no-store'},opts||{});const r=await fetch(path,opts);if(r.status===401){location.href='/login';throw new Error('unauthorized');}if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+function signOut(){fetch('/api/logout',{method:'POST'}).then(()=>location.href='/login').catch(()=>location.href='/login');}
+
+async function loadInfo(){
+  try{const i=await api('/api/info');
+    appInfo=i;
+    let _last=null; try{_last=localStorage.getItem('ns_lastrange');}catch(_){}
+    document.getElementById('subnet').value=_last||i.subnet||'';
+    document.getElementById('env').innerHTML='host <b>'+esc(i.local_ip)+'</b> · gw <b>'+esc(i.gateway||'?')+'</b> · '+esc(i.platform);
+    updateOui(i.oui);
+    updateSecWarn(i.auth);
+    const so=document.getElementById('signout');
+    if(so)so.style.display=(i.auth&&i.auth.method==='session')?'':'none';
+  }catch(e){}
+}
+function updateSecWarn(auth){
+  const el=document.getElementById('secwarn'); if(!el)return;
+  if(auth&&auth.enabled===false){
+    el.style.display='flex';
+    el.innerHTML='<span>⚠</span><span><b>Auth disabled.</b> NETRYX_OPEN is set — the dashboard, API and MCP are open to anyone who can reach this server.</span>';
+  }else if(auth&&auth.default_creds){
+    el.style.display='flex';
+    el.innerHTML='<span>⚠</span><span><b>Default credentials.</b> You\'re still using <span class="mono">admin / admin</span>. Change them in <a href="#" onclick="setView(\'settings\');return false" style="color:#ffd98a">Settings</a>.</span>';
+  }else{el.style.display='none';}
+}
+function updateOui(o){
+  if(!o)return;
+  const led=document.getElementById('ouiled'), txt=document.getElementById('ouitxt');
+  if(o.extended>0){led.classList.add('on');txt.textContent='Vendor DB: '+o.extended.toLocaleString()+' OUIs';
+    document.getElementById('ouibtn').textContent='Update';}
+  else{led.classList.remove('on');txt.textContent='Vendor DB: built-in ('+o.builtin+')';}
+}
+
+function dkeyOf(d){return d.mac||d.ip;}
+function applyBaseline(b){
+  baseline=b||null; ROGUE=new Set(); DRIFT=new Map();
+  const diff=b&&b.diff;
+  if(diff){
+    (diff.rogue_devices||[]).forEach(r=>ROGUE.add(r.key));
+    (diff.new_ports||[]).forEach(p=>{if(!DRIFT.has(p.key))DRIFT.set(p.key,new Set());DRIFT.get(p.key).add(p.port);});
+  }
+  updateBaselineChip(); updateEventsBadge();
+}
+function driftPortCount(){let n=0;DRIFT.forEach(s=>n+=s.size);return n;}
+function updateBaselineChip(){
+  const dot=document.getElementById('bldot'), txt=document.getElementById('bltxt');
+  if(!dot)return;
+  if(!baseline||!baseline.size){dot.className='d';txt.textContent='Baseline: off';return;}
+  const r=ROGUE.size, dp=driftPortCount();
+  if(r||dp){dot.className='d warn';txt.textContent='Baseline: '+r+' rogue'+(dp?(' · '+dp+' port'+(dp===1?'':'s')):'');}
+  else{dot.className='d on';txt.textContent='Baseline: '+baseline.size+' OK';}
+}
+function updateEventsBadge(){
+  const b=document.getElementById('evbadge'); if(!b)return;
+  const n=ROGUE.size+driftPortCount();
+  if(n>0){b.textContent=n;b.style.display='';}else{b.style.display='none';}
+}
+function baselineFlags(d){const k=dkeyOf(d);return {rogue:ROGUE.has(k), ports:DRIFT.get(k)||null};}
+async function loadBaseline(announce){
+  try{
+    const b=await api('/api/baseline');
+    applyBaseline(b);
+    if(view==='table'||view==='cards')render();
+    if(announce&&b&&b.size){
+      const r=ROGUE.size, dp=driftPortCount();
+      if(r>0)toast(r+' unapproved device'+(r===1?'':'s')+' vs baseline','red');
+      if(dp>0)toast(dp+' unapproved open port'+(dp===1?'':'s')+' vs baseline','amber');
+    }
+  }catch(e){}
+}
+async function setBaseline(){
+  if(!devices.length){toast('Run a scan first, then set the baseline','amber');return;}
+  try{
+    const r=await api('/api/baseline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'set'})});
+    toast('Baseline saved — '+r.size+' device'+(r.size===1?'':'s')+' marked known-good','green');
+    await loadBaseline(false);
+    if(view==='events')renderEvents();
+  }catch(e){toast('Could not set baseline: '+e.message,'red');}
+}
+async function clearBaseline(){
+  try{
+    await api('/api/baseline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear'})});
+    toast('Baseline cleared','amber');
+    await loadBaseline(false);
+    if(view==='events')renderEvents();
+  }catch(e){toast('Could not clear baseline: '+e.message,'red');}
+}
+function relTime(ts){
+  if(!ts)return 'just now';
+  const s=Math.max(0,Math.floor(Date.now()/1000-ts));
+  if(s<60)return 'just now';
+  const m=Math.floor(s/60); if(m<60)return m+' min ago';
+  const h=Math.floor(m/60); if(h<24)return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+function expLabel(ts){
+  if(!ts)return 'never expires';
+  const d=Math.round((ts-Date.now()/1000)/86400);
+  return d<=0?'expired':('expires in '+d+'d');
+}
+async function createTokenUI(){
+  const nm=document.getElementById('tok-name'), dys=document.getElementById('tok-days');
+  const name=(nm&&nm.value.trim())||'token';
+  const days=(dys&&dys.value.trim())?Number(dys.value.trim()):null;
+  try{
+    const r=await api('/api/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',name:name,expires_days:days})});
+    if(nm)nm.value=''; if(dys)dys.value='';
+    toast('API token created','green');
+    await renderSettings();
+    const id=r&&r.token&&r.token.id;
+    if(id){const el=document.getElementById('tokval-'+id);
+      if(el){el.scrollIntoView({block:'center',behavior:'smooth'});el.focus();el.select();}}
+  }catch(e){toast('Could not create token: '+e.message,'red');}
+}
+async function deleteTokenUI(id){
+  try{
+    await api('/api/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id:id})});
+    toast('Token deleted','amber'); renderSettings();
+  }catch(e){toast('Could not delete token: '+e.message,'red');}
+}
+function copyText(txt){
+  const ok=()=>toast('Copied to clipboard','green');
+  const fail=()=>toast('Copy failed — select the value and press Ctrl+C','amber');
+  function legacy(){
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=txt; ta.setAttribute('readonly','');
+      ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const done=document.execCommand('copy');
+      document.body.removeChild(ta);
+      done?ok():fail();
+    }catch(e){ fail(); }
+  }
+  // navigator.clipboard only exists in a secure context (HTTPS or localhost);
+  // on plain-HTTP LAN access it's undefined, so fall back to execCommand.
+  if(navigator.clipboard&&navigator.clipboard.writeText&&window.isSecureContext){
+    navigator.clipboard.writeText(txt).then(ok).catch(legacy);
+  }else{ legacy(); }
+}
+const EYE='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 10.6a3 3 0 004.2 4.2M9.9 5.1A10.4 10.4 0 0112 5c6.5 0 10 7 10 7a17.6 17.6 0 01-3 3.9M6.6 6.6A17.6 17.6 0 002 12s3.5 7 10 7a10.4 10.4 0 003.4-.6"/></svg>';
+function toggleToken(id,btn){
+  const el=document.getElementById('tokval-'+id); if(!el)return;
+  const reveal=el.type==='password';
+  el.type=reveal?'text':'password';
+  btn.innerHTML=reveal?EYE_OFF:EYE;
+  btn.title=reveal?'Hide token':'Show token';
+  if(reveal){el.focus();el.select();}
+}
+
+async function startScan(source){
+  if(scanning)return;
+  const subnet=document.getElementById('subnet').value.trim();
+  const _err=targetError(subnet);
+  if(_err){toast(_err,'red');return;}
+  try{localStorage.setItem('ns_lastrange',subnet);}catch(_){}
+  setScanning(true);
+  document.getElementById('firstrun').style.display='none';
+  try{
+    const res=await api('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subnet,scan_ports:document.getElementById('scanports').checked,
+        port_profile:document.getElementById('profile').value,
+        use_mdns:document.getElementById('usemdns').checked,
+        use_snmp:document.getElementById('usesnmp').checked,
+        workers:document.getElementById('workers').value,
+        source:(source==='monitor'?'monitor':'manual')})});
+    currentJob=res.job_id; poll();
+  }catch(e){toast('Scan failed: '+e.message,'red');setScanning(false);}
+}
+function setScanning(on){
+  scanning=on;
+  const b=document.getElementById('scanbtn');
+  if(on){b.textContent='Stop scan';b.classList.add('stop');b.onclick=stopScan;}
+  else{b.textContent='Scan network';b.classList.remove('stop');b.onclick=startScan;}
+  document.getElementById('spin').classList.toggle('on',on);
+}
+async function stopScan(){
+  if(!currentJob)return;
+  document.getElementById('phase').textContent='Stopping…';
+  try{
+    await api('/api/job/stop',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:currentJob})});
+    toast('Stopping scan — finishing in-flight probes…','amber');
+  }catch(e){toast('Could not stop: '+e.message,'red');}
+}
+function fmtEta(ms){
+  if(!isFinite(ms)||ms<0)return '';
+  const s=Math.round(ms/1000);
+  if(s<60)return '~'+s+'s left';
+  const m=Math.round(s/60);
+  if(m<60)return '~'+m+'m left';
+  const h=Math.floor(m/60), mm=m%60;
+  return '~'+h+'h '+(mm<10?'0':'')+mm+'m left';
+}
+function etaText(job){
+  if(!job||job.status!=='running'||!job.total||job.total<=0){etaSamples=[];return '';}
+  const key=job.phase+':'+job.total, now=Date.now();
+  if(key!==etaKey){etaKey=key;etaSamples=[];}
+  etaSamples.push([now,job.done]);
+  while(etaSamples.length>2 && now-etaSamples[0][0]>15000) etaSamples.shift();
+  if(etaSamples.length<2)return 'estimating…';
+  const a=etaSamples[0], b=etaSamples[etaSamples.length-1];
+  const dd=b[1]-a[1], dt=b[0]-a[0], rem=job.total-job.done;
+  if(rem<=0)return '';
+  if(dd<=0||dt<=0)return 'estimating…';
+  return fmtEta(rem/(dd/dt));
+}
+async function poll(){
+  if(!currentJob)return;
+  try{
+    const job=await api('/api/job?id='+currentJob);
+    const pct=job.total?Math.round(job.done/job.total*100):(job.status==='running'?6:100);
+    document.getElementById('progbar').style.width=pct+'%';
+    document.getElementById('phase').textContent=job.phase+(job.note?' — '+job.note:'');
+    var _eta=etaText(job);
+    document.getElementById('progtxt').textContent=job.total?(job.done+' / '+job.total+(_eta?' · '+_eta:'')):'';
+    const _tg=document.getElementById('targets');
+    if(_tg){_tg.innerHTML=(job.targets&&job.targets.length>1)?job.targets.map(t=>'<span class="tg">'+esc(t.cidr)+' <b>'+(t.found||0)+'</b>/'+t.total+'</span>').join(''):'';}
+    if(job.devices&&job.devices.length){devices=job.devices;renderIfChanged();}
+    if(job.status==='running'){pollTimer=setTimeout(poll,650);}
+    else{
+      setScanning(false);
+      if(job.status==='error'){toast('Error: '+job.error,'red');document.getElementById('phase').textContent='Error';return;}
+      devices=job.devices||devices;lastKey='';render();
+      document.getElementById('progbar').style.width='100%';
+      const nd=(job.new_devices||[]).length, np=job.new_ports||0;
+      if(job.stopped){
+        toast('Scan stopped — showing partial results ('+devices.length+' device'+(devices.length===1?'':'s')+')','amber');
+      }else{
+        toast('Survey complete — '+devices.length+' device'+(devices.length===1?'':'s')+(nd?(', '+nd+' new'):''),'green');
+        if(np>0){toast(np+' newly-open port'+(np===1?'':'s')+' since last scan','green');}
+        if(nd>0){notifyNew(nd,np);}
+      }
+      loadBaseline(!job.stopped);
+    }
+  }catch(e){setScanning(false);toast('Lost connection to the scanner engine','red');}
+}
+
+function debouncedRender(){clearTimeout(searchT);searchT=setTimeout(render,160);}
+function matchesFilter(d,f){
+  if(f==='web')return (d.ports||[]).some(p=>p.url);
+  if(f==='open')return (d.ports||[]).length>0;
+  if(f==='new')return d.new;
+  if(f==='named')return !!d.name;
+  return true;
+}
+function visible(){
+  const q=document.getElementById('search').value.toLowerCase().trim();
+  const f=document.getElementById('filter').value, sb=document.getElementById('sortby').value;
+  let list=devices.filter(d=>matchesFilter(d,f));
+  if(q)list=list.filter(d=>[d.ip,d.name,d.hostname,d.mdns_name,d.vendor,d.mac,d.os,d.device_type,
+    (d.mdns_services||[]).join(' '),(d.ports||[]).map(p=>p.port+' '+p.service).join(' ')].join(' ').toLowerCase().includes(q));
+  list.sort((a,b)=>{
+    let av,bv;
+    if(sortCol==='ip'){av=ipNum(a.ip);bv=ipNum(b.ip);}
+    else if(sortCol==='ports'){av=(a.ports||[]).length;bv=(b.ports||[]).length;}
+    else if(sortCol==='name'){av=dispName(a).toLowerCase();bv=dispName(b).toLowerCase();}
+    else{const k=sortCol==='type'?'device_type':sortCol;
+      av=(''+(a[k]||'')).toLowerCase();bv=(''+(b[k]||'')).toLowerCase();}
+    if(av<bv)return -sortDir;
+    if(av>bv)return sortDir;
+    return ipNum(a.ip)-ipNum(b.ip);   // stable tiebreak by IP
+  });
+  return list;
+}
+function dispName(d){return d.name||d.mdns_name||d.hostname||d.vendor||'Unknown device';}
+function nodeField(d,f){
+  switch(f){
+    case 'name': {let s=d.name||d.mdns_name||d.hostname; return s?(''+s).replace(/\.local$/i,''):'';}
+    case 'ipfull': return d.ip||'';
+    case 'mac': return d.mac||'';
+    case 'vendor': return d.vendor||'';
+    case 'type': return d.device_type||'';
+    case 'os': return d.os||'';
+    case 'model': return d.model||'';
+    case 'reach': return d.detect?((d.detect==='tcp'?'TCP':'ping')+(d.hops!=null?(' '+d.hops+'h'):'')):'';
+    case 'latency': return d.latency!=null?(d.latency+'ms'):'';
+    case 'seen': return d.seen_count?('×'+d.seen_count):'';
+    case 'ports': return ((d.ports||[]).length)+'p';
+    default: return d.ip?d.ip.split('.').pop():'';   // 'ip' = last octet
+  }
+}
+function leafLabel(d){
+  let s=nodeField(d,mapLabel);
+  if(!s) s=d.ip?d.ip.split('.').pop():'?';   // fall back to IP last octet
+  return s.length>16?s.slice(0,15)+'…':s;
+}
+function renderIfChanged(){
+  const k=devices.map(d=>d.ip+':'+((d.ports||[]).length)+':'+(d.new?1:0)+':'+(d.name||'')+':'+(d.device_type||'')).join('|');
+  if(k!==lastKey){lastKey=k;render();}
+}
+function render(){
+  document.getElementById('empty').style.display=devices.length?'none':'block';
+  updateStats();
+  if(view==='cards')renderCards();
+  else if(view==='table')renderTable();
+  else if(view==='map')renderTopo();
+}
+function updateStats(){
+  document.getElementById('s-total').textContent=devices.length;
+  document.getElementById('s-web').textContent=devices.filter(d=>(d.ports||[]).some(p=>p.url)).length;
+  document.getElementById('s-ports').textContent=devices.reduce((n,d)=>n+(d.ports||[]).length,0);
+  document.getElementById('s-new').textContent=devices.filter(d=>d.new).length;
+}
+function renderCards(){
+  const full=visible(), CAP=400, list=full.slice(0,CAP);
+  let html=list.map(d=> d.ip===editingIp ? cardEditMarkup(d) : cardMarkup(d)).join('');
+  if(full.length>CAP) html+='<div class="card" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);text-align:center">Showing '+CAP+' of '+full.length+'<br>narrow with search / filter</div>';
+  document.getElementById('grid').innerHTML=html;
+  if(editingIp){const n=document.getElementById('ce-name'); if(n)n.focus();}
+}
+function cardMarkup(d){
+  const col=typeColor(d.device_type);
+  const _bf=baselineFlags(d);
+  const badges=[];
+  if(d.new)badges.push('<span class="badge new">NEW</span>');
+  else if(d.changed)badges.push('<span class="badge chg">+PORTS</span>');
+  if(d.is_gateway)badges.push('<span class="badge gw">GATEWAY</span>');
+  if(d.is_self)badges.push('<span class="badge you">YOU</span>');
+  if(d.is_dns)badges.push('<span class="badge dns">DNS</span>');
+  if(d.random_mac)badges.push('<span class="badge rnd" title="Locally-administered (randomized) MAC — typically a phone with privacy MAC enabled">PRIVATE MAC</span>');
+  if(d.device_type)badges.push('<span class="badge">'+esc(d.device_type)+'</span>');
+  if(_bf.rogue)badges.unshift('<span class="badge rogue" title="Not in your known-good baseline">ROGUE</span>');
+  else if(_bf.ports)badges.unshift('<span class="badge drift" title="Open ports not in your baseline">PORT DRIFT</span>');
+  const svc=(d.mdns_services||[]).map(s=>'<span class="s">'+esc(s)+'</span>').join('');
+  const ports=(d.ports||[]).map(p=>{
+    const fresh=p.new?' fresh':'';
+    const rp=(_bf.ports&&_bf.ports.has(p.port))?' rogueport':'';
+    const tip=[];
+    if(p.banner)tip.push(p.banner);
+    if(p.title)tip.push('“'+p.title+'”');
+    if(p.tls)tip.push((p.tls.proto||'TLS')+(p.tls.cipher?' '+p.tls.cipher:'')+(p.tls.cn?' · CN='+p.tls.cn:'')+(p.tls.expires?' · exp '+p.tls.expires:'')+(p.tls.self_signed?' · self-signed':''));
+    const tt=tip.length?' title="'+esc(tip.join(' | '))+'"':'';
+    return p.url
+      ?'<span class="chip web'+fresh+rp+'"'+tt+'><a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+p.port+' '+esc(p.service)+' ↗</a></span>'
+      :'<span class="chip'+fresh+rp+'"'+tt+'>'+p.port+' '+esc(p.service)+'</span>';
+  }).join('');
+  const up=(d.upnp||{}), sn=(d.snmp||{}), nb=(d.netbios||{});
+  const maker=(up.manufacturer && (!d.vendor || up.manufacturer.toLowerCase()!==d.vendor.toLowerCase()))?up.manufacturer:'';
+  const webTitle=(d.ports||[]).find(p=>p.title);
+  const reach=d.detect?((d.detect==='tcp'?'TCP only (no ping reply)':'Responds to ping')+(d.hops!=null?(' · ~'+d.hops+' hop'+(d.hops===1?'':'s')):'')):'';
+  const tlsPort=(d.ports||[]).find(p=>p.tls);
+  const tlsTxt=tlsPort?((tlsPort.tls.proto||'TLS')+(tlsPort.tls.cn?' · CN='+tlsPort.tls.cn:'')+(tlsPort.tls.expires?' · expires '+tlsPort.tls.expires:'')+(tlsPort.tls.self_signed?' · self-signed':'')):'';
+  const seen=d.seen_count?('seen '+d.seen_count+'×'+(d.first_seen?', since '+fmtDate(d.first_seen):'')):'';
+  return '<div class="card'+(d.new?' isnew':'')+(_bf.rogue?' isrogue':'')+'" id="card-'+esc(d.ip)+'" style="--accent:'+col+'">'+
+    '<div class="glowedge"></div>'+
+    '<div class="top"><div class="idn"><div class="ico">'+icon(d.device_type)+'</div>'+
+      '<div style="min-width:0"><div class="nm">'+esc(dispName(d))+'</div><div class="ipv">'+esc(d.ip)+'</div></div></div>'+
+      '<div class="badges">'+badges.join('')+'</div></div>'+
+    '<div class="meta">'+
+      metaRow('Host', d.hostname)+
+      (d.mac?'<span class="k">MAC</span><span class="v mono" style="font-size:12px">'+esc(d.mac)+'</span>':'')+
+      metaRow('Vendor', d.vendor)+
+      metaRow('Model', d.model)+
+      metaRow('Maker', maker)+
+      metaRow('Workgroup', nb.group)+
+      metaRow('OS', d.os)+
+      metaRow('Reach', reach)+
+      metaRow('Web', webTitle?webTitle.title:'')+
+      metaRow('TLS', tlsTxt)+
+      metaRow('Info', sn.descr)+
+      metaRow('Uptime', sn.uptime)+
+      metaRow('Location', sn.location)+
+      metaRow('Contact', sn.contact)+
+      (d.latency!=null?'<span class="k">Latency</span><span class="v">'+d.latency+' ms</span>':'')+
+      metaRow('History', seen)+
+      metaRow('Notes', d.notes)+
+    '</div>'+
+    (svc?'<div class="svc">'+svc+'</div>':'')+
+    (ports?'<div class="ports">'+ports+'</div>':'<div class="noports">No open ports found yet — use “Scan ports”.</div>')+
+    '<div class="cardbtns">'+
+      '<button class="sm" onclick="scanHostPorts(\''+esc(d.ip)+'\')">Scan ports</button>'+
+      (d.mac?'<button class="sm ghost" onclick="wol(\''+esc(d.mac)+'\')">Wake</button>':'')+
+      '<button class="sm ghost" onclick="startCardEdit(\''+esc(d.ip)+'\')">Edit</button>'+
+    '</div></div>';
+}
+function cardEditMarkup(d){
+  const col=typeColor(d.device_type);
+  return '<div class="card editing flash" id="card-'+esc(d.ip)+'" style="--accent:'+col+'">'+
+    '<div class="glowedge"></div>'+
+    '<div class="top"><div class="idn"><div class="ico">'+icon(d.device_type)+'</div>'+
+      '<div style="min-width:0"><div class="nm">'+esc(dispName(d))+'</div><div class="ipv">'+esc(d.ip)+'</div></div></div></div>'+
+    '<label class="celbl">Friendly name</label>'+
+    '<input id="ce-name" class="ceinput" type="text" autocomplete="off" placeholder="e.g. Living-room TV" value="'+esc(d.name||'')+'">'+
+    '<label class="celbl">Notes</label>'+
+    '<textarea id="ce-notes" class="ceinput" placeholder="Anything to remember about this device">'+esc(d.notes||'')+'</textarea>'+
+    '<div class="hint" style="margin-top:7px">'+(d.mac?('MAC '+esc(d.mac)):'No MAC found — name/notes need a MAC to save.')+'</div>'+
+    '<div class="cardbtns">'+
+      '<button class="sm primary" onclick="saveCardEdit()">Save</button>'+
+      '<button class="sm ghost" onclick="cancelCardEdit()">Cancel</button>'+
+    '</div></div>';
+}
+function renderTable(){
+  const full=visible(), CAP=1500, list=full.slice(0,CAP);
+  const head='<thead><tr><th onclick="headerSort(\'ip\')">IP'+sortArrow('ip')+'</th>'+
+    '<th onclick="headerSort(\'name\')">Name'+sortArrow('name')+'</th>'+
+    '<th onclick="headerSort(\'type\')">Type'+sortArrow('type')+'</th>'+
+    '<th onclick="headerSort(\'vendor\')">Vendor'+sortArrow('vendor')+'</th>'+
+    '<th onclick="headerSort(\'mac\')">MAC'+sortArrow('mac')+'</th>'+
+    '<th onclick="headerSort(\'os\')">OS'+sortArrow('os')+'</th>'+
+    '<th onclick="headerSort(\'ports\')">Open ports'+sortArrow('ports')+'</th></tr></thead>';
+  const rows=list.map(d=>{const _bf=baselineFlags(d);return '<tr onclick="focusCard(\''+esc(d.ip)+'\')" style="cursor:pointer">'+
+    '<td class="mono"><span style="color:'+typeColor(d.device_type)+'">●</span> '+esc(d.ip)+(d.new?' <span class="badge new">NEW</span>':(d.changed?' <span class="badge chg">+PORTS</span>':''))+(_bf.rogue?' <span class="badge rogue">ROGUE</span>':(_bf.ports?' <span class="badge drift">DRIFT</span>':''))+'</td>'+
+    '<td>'+esc(dispName(d))+(d.is_gateway?' <span class="badge gw">GW</span>':'')+'</td>'+
+    '<td>'+esc(d.device_type||'')+'</td>'+
+    '<td>'+esc(d.vendor||'')+'</td>'+
+    '<td class="mono" style="font-size:11px">'+esc(d.mac||'')+'</td>'+
+    '<td>'+esc(d.os||'')+'</td>'+
+    '<td><div class="pillwrap">'+((d.ports||[]).map(p=>{const rp=(_bf.ports&&_bf.ports.has(p.port))?' rogueport':'';return p.url?'<a class="pill web'+(p.new?' fresh':'')+rp+'" href="'+esc(p.url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+p.port+'↗</a>':'<span class="pill'+(p.new?' fresh':'')+rp+'">'+p.port+'</span>';}).join('')||'<span class="hint">—</span>')+'</div></td>'+
+    '</tr>';}).join('');
+  document.getElementById('tbl').innerHTML=head+'<tbody>'+rows+(full.length>CAP?'<tr><td colspan="7" class="hint">Showing '+CAP+' of '+full.length+' rows \u2014 narrow with search / filter</td></tr>':'')+'</tbody>';
+}
+function headerSort(k){
+  if(sortCol===k){sortDir=-sortDir;}
+  else{sortCol=k;sortDir=(k==='ports')?-1:1;}
+  const sb=document.getElementById('sortby'); if(sb) sb.value=k;
+  render();
+}
+function setSortFromDropdown(){
+  sortCol=document.getElementById('sortby').value;
+  sortDir=(sortCol==='ports')?-1:1;
+  render();
+}
+function sortArrow(k){return sortCol===k?('<span class="ar">'+(sortDir>0?'▲':'▼')+'</span>'):'';}
+
+/* ===== Map: aggregated, expandable floating force-graph + modes ===== */
+let mapMode=(function(){try{return localStorage.getItem('ns_mapmode')||'graph';}catch(_){return 'graph';}})();
+let mapLabel=(function(){try{return localStorage.getItem('ns_maplabel')||'name';}catch(_){return 'name';}})();
+let _sim=null, _mapList=[], expanded=new Set();
+
+const RISKY={23:'Telnet',2323:'Telnet',3389:'RDP',445:'SMB',139:'NetBIOS',21:'FTP',
+  5900:'VNC',1433:'MSSQL',3306:'MySQL',5432:'Postgres',6379:'Redis',27017:'MongoDB',
+  9200:'Elasticsearch',11211:'Memcached',2375:'Docker',5555:'ADB',2049:'NFS',
+  512:'rexec',513:'rlogin',514:'rsh'};
+const RISK_COL={red:'#e5534b',amber:'#c69026',green:'#57ab5a'};
+function riskOf(d){
+  const ports=d.ports||[]; const reasons=[]; let score=0;
+  ports.forEach(p=>{if(RISKY[p.port]){score+=3;reasons.push(RISKY[p.port]);}});
+  if(ports.some(p=>p.tls&&p.tls.self_signed)){score+=1;reasons.push('self-signed TLS');}
+  if(ports.some(p=>p.url))score+=1;
+  score+=Math.min(2,Math.floor(ports.length/6));
+  const tier=!ports.length?'green':(score>=3?'red':(score>=1?'amber':'green'));
+  return {tier,score,reasons};
+}
+function groupKey(d){
+  if(mapMode==='exposure')return riskOf(d).tier;
+  if(mapMode==='changes')return d.new?'new':(d.changed?'changed':'unchanged');
+  if(mapMode==='neighborhoods')return d.ip.split('.').slice(0,3).join('.');
+  return d.device_type||'Device';
+}
+function groupColor(key,members){
+  if(mapMode==='exposure')return RISK_COL[key]||'#768390';
+  if(mapMode==='changes')return key==='new'?'#57ab5a':(key==='changed'?'#c69026':'#41506a');
+  if(mapMode==='graph')return typeColor(key);
+  const tc={}; (members||[]).forEach(d=>tc[d.device_type]=(tc[d.device_type]||0)+1);
+  return typeColor(Object.keys(tc).sort((a,b)=>tc[b]-tc[a])[0]);
+}
+function legendName(key){
+  if(mapMode==='exposure')return ({red:'Risky',amber:'Exposed',green:'Clean'}[key]||key);
+  if(mapMode==='changes')return ({new:'New',changed:'+Ports',unchanged:'Unchanged'}[key]||key);
+  if(mapMode==='neighborhoods')return key+'.x';
+  return key;
+}
+function groupOrder(keys){
+  if(mapMode==='exposure')return ['red','amber','green'].filter(k=>keys.indexOf(k)>=0);
+  if(mapMode==='changes')return ['new','changed','unchanged'].filter(k=>keys.indexOf(k)>=0);
+  return keys.slice().sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+}
+function syncMapBar(){document.querySelectorAll('#view-map .mapbar button').forEach(b=>b.classList.toggle('active',b.dataset.m===mapMode));}
+function setMapMode(m){mapMode=m;expanded=new Set();syncMapBar();try{localStorage.setItem('ns_mapmode',m);}catch(_){}renderTopo();_scheduleAutoExplode();}
+function syncMapKey(){const k=document.getElementById('mapkey');if(k)k.style.display=(mapMode==='ipgrid')?'none':'';}
+function toggleMapKey(){const k=document.getElementById('mapkey');if(!k)return;
+  const c=k.classList.toggle('collapsed');const ch=document.getElementById('mapkey-chev');if(ch)ch.textContent=c?'▸':'▾';
+  try{localStorage.setItem('ns_mapkey',c?'1':'0');}catch(_){}}
+(function(){try{if(localStorage.getItem('ns_mapkey')==='1'){const k=document.getElementById('mapkey');if(k){k.classList.add('collapsed');const ch=document.getElementById('mapkey-chev');if(ch)ch.textContent='▸';}}}catch(_){}})();
+function setMapLabel(v){mapLabel=v;try{localStorage.setItem('ns_maplabel',v);}catch(_){}renderTopo();}
+// ---- Auto-explode the map 3s after it comes into view (cancelled by any manual interaction) ----
+let _autoExplodeTimer=null;
+function _scheduleAutoExplode(){
+  _cancelAutoExplode();
+  _autoExplodeTimer=setTimeout(function(){
+    _autoExplodeTimer=null;
+    if(view!=='map'||mapMode==='ipgrid')return;       // user moved away or grid mode has no groups
+    const keys=_groupKeys();
+    if(!keys.length||keys.every(k=>expanded.has(k)))return;   // nothing to expand / already open
+    toggleExpandAll();
+  },3000);
+}
+function _cancelAutoExplode(){if(_autoExplodeTimer){clearTimeout(_autoExplodeTimer);_autoExplodeTimer=null;}}
+function toggleGroup(key){ _cancelAutoExplode(); if(expanded.has(key))expanded.delete(key); else expanded.add(key); startGraph(_mapList); syncExpandBtn(); }
+function _groupKeys(){ return [...new Set((_mapList||[]).filter(d=>!d.is_gateway).map(d=>groupKey(d)))]; }
+const ICON_EXPAND='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+const ICON_COLLAPSE='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/></svg>';
+function syncExpandBtn(){
+  const b=document.getElementById('expandall'); if(!b)return;
+  const keys=_groupKeys();
+  if(mapMode==='ipgrid' || keys.length===0){ b.style.display='none'; return; }
+  b.style.display='';
+  const allOpen=keys.every(k=>expanded.has(k));
+  b.innerHTML=allOpen?ICON_COLLAPSE:ICON_EXPAND;
+  const lbl=allOpen?'Collapse all groups':'Expand all groups';
+  b.title=lbl; b.setAttribute('aria-label',lbl);
+}
+function toggleExpandAll(){
+  _cancelAutoExplode();
+  const keys=_groupKeys(); if(!keys.length)return;
+  if(keys.every(k=>expanded.has(k))) expanded=new Set();      // all open -> collapse all
+  else keys.forEach(k=>expanded.add(k));                       // otherwise -> expand all
+  startGraph(_mapList); syncExpandBtn();
+}
+function stopSim(){
+  if(_sim){
+    if(_sim.raf)cancelAnimationFrame(_sim.raf);
+    if(_sim._mm)window.removeEventListener('mousemove',_sim._mm);
+    if(_sim._mu)window.removeEventListener('mouseup',_sim._mu);
+    _sim.running=false; _sim=null;
+  }
+}
+function renderTopo(){
+  syncMapBar();
+  syncMapKey();
+  const _ml=document.getElementById('maplabel'); if(_ml)_ml.value=mapLabel;
+  const list=visible(); _mapList=list;
+  syncExpandBtn();
+  if(mapMode==='ipgrid'){ stopSim(); return renderIPGrid(list); }
+  return startGraph(list);
+}
+
+function startGraph(list){
+  const W=1000,H=680,cx=W/2,cy=H/2;
+  const prev={}; if(_sim){_sim.nodes.forEach(n=>prev[n.id]={x:n.x,y:n.y,vx:n.vx,vy:n.vy});}
+  stopSim();
+  const gwDev=list.find(d=>d.is_gateway);
+  const rest=list.filter(d=>!d.is_gateway);
+  const groups={};
+  rest.forEach(d=>{const k=groupKey(d);(groups[k]=groups[k]||[]).push(d);});
+  const keys=groupOrder(Object.keys(groups));
+
+  const nodes=[]; const idByKey={};
+  nodes.push({id:'hub',kind:'hub',color:'#c69026',r:13,parent:-1,
+    x:cx,y:cy,vx:0,vy:0,fx:cx,fy:cy,d:gwDev||null,label:gwDev?gwDev.ip:'NETWORK'});
+  keys.forEach((k,i)=>{
+    const members=groups[k], col=groupColor(k,members);
+    const ang=(i/Math.max(1,keys.length))*2*Math.PI-Math.PI/2;
+    const p=prev['agg:'+k];
+    idByKey[k]=nodes.length;
+    nodes.push({id:'agg:'+k,kind:'agg',key:k,color:col,count:members.length,label:legendName(k),
+      r:15+Math.min(30,members.length*1.1),parent:0,linkLen:205,fx:null,fy:null,
+      x:p?p.x:cx+220*Math.cos(ang),y:p?p.y:cy+220*Math.sin(ang),vx:p?p.vx:0,vy:p?p.vy:0});
+  });
+  const CAP=600; let leaves=0, capped=false;
+  keys.forEach(k=>{
+    if(!expanded.has(k))return;
+    const ai=idByKey[k], agg=nodes[ai], mem=groups[k];
+    const adx=agg.x-cx, ady=agg.y-cy, ad=Math.sqrt(adx*adx+ady*ady)||1;
+    const ox=adx/ad, oy=ady/ad, px=-oy, py=ox;   // outward + perpendicular dirs
+    mem.forEach((d,li)=>{
+      if(leaves>=CAP){capped=true;return;}
+      leaves++;
+      const p=prev['leaf:'+d.ip], rad=5+Math.min(8,(d.ports||[]).length);
+      const fan=(li-(mem.length-1)/2);
+      const sx=agg.x+ox*(agg.r+42)+px*fan*22+(Math.random()-0.5)*10;
+      const sy=agg.y+oy*(agg.r+42)+py*fan*22+(Math.random()-0.5)*10;
+      nodes.push({id:'leaf:'+d.ip,kind:'leaf',d:d,parent:ai,linkLen:70,fx:null,fy:null,r:rad,
+        color:(mapMode==='exposure'?RISK_COL[riskOf(d).tier]:typeColor(d.device_type)),
+        ring:(d.new?'new':(d.changed?'chg':'')),
+        x:p?p.x:sx,y:p?p.y:sy,vx:p?p.vx:0,vy:p?p.vy:0});
+    });
+  });
+
+  function nodeMarkup(n,i){
+    if(n.kind==='hub')
+      return '<g class="tnode" id="n'+i+'" style="cursor:'+(n.d?'pointer':'default')+'">'+
+        '<circle r="26" fill="#c69026" opacity="0.12"/><circle r="'+n.r+'" fill="url(#og)"/>'+
+        '<text class="tlabel" y="'+(n.r+16)+'" text-anchor="middle" style="fill:#c69026">'+esc(n.label)+'</text></g>';
+    if(n.kind==='agg'){
+      const ex=expanded.has(n.key);
+      return '<g class="tnode" id="n'+i+'" style="cursor:pointer">'+
+        '<circle r="'+n.r+'" fill="'+n.color+'" opacity="0.28" filter="url(#nglow)"/>'+
+        '<circle r="'+n.r+'" fill="'+n.color+'" fill-opacity="0.26" stroke="'+n.color+'" stroke-width="'+(ex?1:2)+'"/>'+
+        '<text y="5" text-anchor="middle" style="fill:var(--text);font-size:'+(n.r>=24?17:14)+'px;font-weight:600">'+n.count+'</text>'+
+        '<text class="tlabel" y="'+(n.r+16)+'" text-anchor="middle" style="fill:'+n.color+'">'+esc(n.label)+(ex?' ▾':' ▸')+'</text></g>';
+    }
+    const ring=n.ring==='new'?'<circle r="'+(n.r+6)+'" fill="#57ab5a" opacity="0.25"/>'
+      :(n.ring==='chg'?'<circle r="'+(n.r+5)+'" fill="none" stroke="#c69026" stroke-width="2" stroke-dasharray="4 3"/>':'');
+    return '<g class="tnode" id="n'+i+'" style="cursor:pointer">'+ring+
+      '<circle r="'+n.r+'" fill="'+n.color+'" stroke-width="1.4" style="stroke:var(--bg)"/>'+
+      '<text class="tlabel" y="'+(n.r+12)+'" text-anchor="middle">'+esc(leafLabel(n.d))+'</text></g>';
+  }
+
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" id="mapsvg" xmlns="http://www.w3.org/2000/svg">';
+  svg+='<defs><radialGradient id="og"><stop offset="0%" stop-color="#daaa3f"/><stop offset="100%" stop-color="#c69026"/></radialGradient>'+
+    '<filter id="nglow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5"/></filter></defs><g id="edges">';
+  nodes.forEach((n,i)=>{ if(n.parent>=0) svg+='<line id="e'+i+'" stroke="'+n.color+'" stroke-width="1" stroke-opacity="'+(n.kind==='leaf'?0.22:0.14)+'"/>'; });
+  svg+='</g><g id="nds">';
+  nodes.forEach((n,i)=>svg+=nodeMarkup(n,i));
+  svg+='</g></svg>';
+  document.getElementById('svgwrap').innerHTML=svg;
+
+  const gEls=nodes.map((n,i)=>document.getElementById('n'+i));
+  const eEls=nodes.map((n,i)=>document.getElementById('e'+i));
+  const svgEl=document.getElementById('mapsvg');
+  _sim={nodes,running:true,raf:0,alpha:1.0};
+
+  function tick(){
+    if(!_sim||!_sim.running)return;
+    const alpha=_sim.alpha, N=nodes.length;
+    for(let i=0;i<N;i++){const a=nodes[i];
+      for(let j=i+1;j<N;j++){const b=nodes[j];
+        let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy+0.01,dist=Math.sqrt(d2);
+        const f=1700/d2*alpha,fx=dx/dist*f,fy=dy/dist*f; a.vx+=fx;a.vy+=fy;b.vx-=fx;b.vy-=fy;}}
+    for(let i=0;i<N;i++){const n=nodes[i];
+      if(n.parent>=0){const par=nodes[n.parent],dx=par.x-n.x,dy=par.y-n.y,dist=Math.sqrt(dx*dx+dy*dy)||1,f=(dist-n.linkLen)*0.03*alpha;
+        n.vx+=dx/dist*f;n.vy+=dy/dist*f;}
+      if(n.kind==='leaf'){const ddx=n.x-cx,ddy=n.y-cy,dd=Math.sqrt(ddx*ddx+ddy*ddy)||1;
+        n.vx+=ddx/dd*0.75*alpha;n.vy+=ddy/dd*0.75*alpha;}
+      else{n.vx+=(cx-n.x)*0.006*alpha;n.vy+=(cy-n.y)*0.006*alpha;}
+      n.vx+=(Math.random()-0.5)*0.18*alpha;n.vy+=(Math.random()-0.5)*0.18*alpha;}
+    for(let i=0;i<N;i++){const n=nodes[i];
+      if(n.fx!=null){n.x=n.fx;n.y=n.fy;n.vx=0;n.vy=0;}
+      else{n.vx*=0.80;n.vy*=0.80;n.x+=n.vx;n.y+=n.vy;
+        n.x=Math.max(n.r+6,Math.min(W-n.r-6,n.x));n.y=Math.max(n.r+20,Math.min(H-n.r-18,n.y));}}
+    _sim.alpha=alpha*0.97;
+    for(let i=0;i<N;i++) gEls[i].setAttribute('transform','translate('+nodes[i].x.toFixed(1)+','+nodes[i].y.toFixed(1)+')');
+    for(let i=0;i<N;i++){const n=nodes[i]; if(n.parent>=0&&eEls[i]){const par=nodes[n.parent];
+      let dx=par.x-n.x,dy=par.y-n.y,dist=Math.sqrt(dx*dx+dy*dy)||1,ux=dx/dist,uy=dy/dist;
+      if(dist-n.r-par.r>2){   // stop each line at the circles' rims, not their centres
+        eEls[i].setAttribute('x1',(n.x+ux*n.r).toFixed(1));eEls[i].setAttribute('y1',(n.y+uy*n.r).toFixed(1));
+        eEls[i].setAttribute('x2',(par.x-ux*par.r).toFixed(1));eEls[i].setAttribute('y2',(par.y-uy*par.r).toFixed(1));
+      }else{
+        eEls[i].setAttribute('x1',n.x.toFixed(1));eEls[i].setAttribute('y1',n.y.toFixed(1));
+        eEls[i].setAttribute('x2',par.x.toFixed(1));eEls[i].setAttribute('y2',par.y.toFixed(1));
+      }}}
+    if(_sim.alpha<0.02){_sim.frozen=true;return;}   // settled: rest (still + clickable, no CPU)
+    _sim.raf=requestAnimationFrame(tick);
+  }
+  function reheat(){ if(!_sim)return; _sim.alpha=Math.max(_sim.alpha||0,0.55); if(_sim.frozen){_sim.frozen=false; _sim.raf=requestAnimationFrame(tick);} }
+  _sim.raf=requestAnimationFrame(tick);
+
+  let drag=null,moved=false,sx=0,sy=0;
+  function pt(e){const r=svgEl.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
+  nodes.forEach((n,i)=>{
+    const g=gEls[i]; if(!g)return;
+    g.addEventListener('mousedown',e=>{drag=n;moved=false;const p=pt(e);sx=p.x;sy=p.y;n.fx=n.x;n.fy=n.y;reheat();e.preventDefault();});
+    if(n.d) g.addEventListener('mousemove',e=>showTip(e,n.d.ip));
+    g.addEventListener('mouseleave',hideTip);
+    g.addEventListener('click',()=>{ if(moved)return; if(n.kind==='agg')toggleGroup(n.key); else if(n.d)focusCard(n.d.ip); });
+  });
+  _sim._mm=function(e){ if(!drag)return; const p=pt(e); drag.fx=p.x; drag.fy=p.y; if(Math.abs(p.x-sx)+Math.abs(p.y-sy)>6)moved=true; reheat(); };
+  _sim._mu=function(){ if(drag&&drag.kind!=='hub'){drag.fx=null;drag.fy=null;} drag=null; };
+  window.addEventListener('mousemove',_sim._mm);
+  window.addEventListener('mouseup',_sim._mu);
+
+  document.getElementById('legend').innerHTML=
+    keys.map(k=>'<span><span class="lg" style="background:'+groupColor(k,groups[k])+'"></span>'+esc(legendName(k))+' '+groups[k].length+'</span>').join('')+
+    '<span class="hint">click a cluster to expand / collapse · drag to rearrange'+(capped?' · showing first 600 members':'')+'</span>';
+}
+
+let gridSubnet=null;
+function setGridSubnet(b){gridSubnet=b;renderTopo();}
+function renderIPGrid(list){
+  const byBase={};
+  list.forEach(d=>{const b=d.ip.split('.').slice(0,3).join('.'); (byBase[b]=byBase[b]||[]).push(d);});
+  const bases=Object.keys(byBase).sort((a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);return x[0]-y[0]||x[1]-y[1]||x[2]-y[2];});
+  if(gridSubnet && !byBase[gridSubnet]) gridSubnet=null;
+  if(bases.length>1 && !gridSubnet){
+    const cols=Math.min(8,bases.length), cell=104, gap=12, pad=18;
+    const rows=Math.ceil(bases.length/cols);
+    const W=pad*2+cols*(cell+gap)-gap, H=pad*2+rows*(cell+gap)-gap+10;
+    const maxc=Math.max.apply(null,bases.map(b=>byBase[b].length));
+    let s='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+    bases.forEach((b,i)=>{
+      const r=Math.floor(i/cols), c=i%cols, x=pad+c*(cell+gap), y=pad+r*(cell+gap), items=byBase[b];
+      const tc={}; items.forEach(d=>tc[d.device_type]=(tc[d.device_type]||0)+1);
+      const dom=Object.keys(tc).sort((p,q)=>tc[q]-tc[p])[0];
+      const col=typeColor(dom), op=(0.22+0.66*(items.length/maxc)).toFixed(2);
+      const anyNew=items.some(d=>d.new), anyChg=items.some(d=>d.changed);
+      s+='<g style="cursor:pointer" onclick="setGridSubnet(\''+b+'\')">'+
+        '<rect x="'+x+'" y="'+y+'" width="'+cell+'" height="'+cell+'" rx="12" fill="'+col+'" fill-opacity="'+op+'" stroke="'+(anyNew?'#57ab5a':(anyChg?'#c69026':'#444c56'))+'" stroke-width="'+(anyNew||anyChg?2:1)+'"/>'+
+        '<text x="'+(x+cell/2)+'" y="'+(y+cell/2-4)+'" text-anchor="middle" style="fill:var(--text);font-size:26px;font-weight:600">'+items.length+'</text>'+
+        '<text x="'+(x+cell/2)+'" y="'+(y+cell/2+18)+'" text-anchor="middle" style="fill:var(--muted);font-size:12px;font-family:ui-monospace,monospace">'+b+'.x</text></g>';
+    });
+    s+='</svg>';
+    document.getElementById('svgwrap').innerHTML=s;
+    document.getElementById('legend').innerHTML='<span class="hint">'+bases.length+' active /24 subnets · number = devices · brighter = busier · click a subnet to open its address grid</span>';
+    return;
+  }
+  const base=gridSubnet||bases[0]||'';
+  const byOct={}; (byBase[base]||[]).forEach(d=>byOct[+d.ip.split('.').pop()]=d);
+  const cols=16, cell=54, gap=8, pad=18, top=(bases.length>1?34:0);
+  const W=pad*2+cols*(cell+gap)-gap, rows=16, H=pad*2+top+rows*(cell+gap)-gap+10;
+  let s='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+  if(bases.length>1) s+='<text x="'+pad+'" y="'+(pad+8)+'" onclick="setGridSubnet(null)" style="cursor:pointer;fill:#539bf5;font-size:13px;font-family:ui-monospace,monospace">‹ All subnets</text>'+
+    '<text x="'+(W-pad)+'" y="'+(pad+8)+'" text-anchor="end" style="fill:#768390;font-size:13px;font-family:ui-monospace,monospace">'+esc(base+'.0/24')+'</text>';
+  for(let o=0;o<256;o++){
+    const r=Math.floor(o/cols), c=o%cols, x=pad+c*(cell+gap), y=pad+top+r*(cell+gap), d=byOct[o];
+    if(d){
+      const col=typeColor(d.device_type), stroke=d.is_self?'#539bf5':(d.is_gateway?'#c69026':'#22272e'), sw=(d.is_self||d.is_gateway)?2.5:1;
+      let gl=nodeField(d,mapLabel)||(''+o); if(gl.length>28)gl=gl.slice(0,27)+'…';
+      const gfs=/^\d+$/.test(gl)?13:(gl.length>10?8:10);
+      s+='<g class="tnode" style="cursor:pointer" onclick="focusCard(\''+esc(d.ip)+'\')" onmousemove="showTip(event,\''+esc(d.ip)+'\')" onmouseleave="hideTip()">'+
+        '<rect x="'+x+'" y="'+y+'" width="'+cell+'" height="'+cell+'" rx="8" fill="'+col+'" fill-opacity="'+(d.new?'0.95':'0.78')+'" stroke="'+stroke+'" stroke-width="'+sw+'"/>'+
+        '<foreignObject x="'+x+'" y="'+y+'" width="'+cell+'" height="'+cell+'"><div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;box-sizing:border-box;color:#06121c;font-weight:600;font-size:'+gfs+'px;line-height:1.05;word-break:break-word;overflow:hidden">'+esc(gl)+'</div></foreignObject></g>';
+    }else{
+      s+='<rect x="'+x+'" y="'+y+'" width="'+cell+'" height="'+cell+'" rx="8" style="fill:var(--panel);stroke:var(--line)"/>'+
+        '<text x="'+(x+cell/2)+'" y="'+(y+cell/2+4)+'" text-anchor="middle" style="fill:var(--faint);font-size:10px">'+o+'</text>';
+    }
+  }
+  s+='</svg>';
+  document.getElementById('svgwrap').innerHTML=s;
+  document.getElementById('legend').innerHTML='<span class="hint">'+esc(base)+'.0 → .255 · filled = in use</span>'+
+    '<span><span class="lg" style="background:#c69026"></span>gateway</span>'+
+    '<span><span class="lg" style="background:#539bf5"></span>this PC</span>'+
+    '<span class="hint">contiguous = DHCP pool · gaps = free addresses</span>';
+}
+
+function showTip(e,ip){
+  const d=devices.find(x=>x.ip===ip);if(!d)return;
+  const tip=document.getElementById('tip');
+  tip.innerHTML='<div class="ti">'+esc(dispName(d))+'</div>'+
+    '<div class="tm">'+esc(d.ip)+(d.mac?' · '+esc(d.mac):'')+'</div>'+
+    '<div class="tm">'+esc(d.device_type||'')+(d.vendor?' · '+esc(d.vendor):'')+'</div>'+
+    ((d.ports||[]).length?'<div class="tm">ports: '+d.ports.map(p=>p.port).join(', ')+'</div>':'')+
+    ((d.mdns_services||[]).length?'<div class="tm">'+esc(d.mdns_services.join(', '))+'</div>':'');
+  const wrap=document.getElementById('topo').getBoundingClientRect();
+  tip.style.left=(e.clientX-wrap.left+14)+'px';
+  tip.style.top=(e.clientY-wrap.top+14)+'px';
+  tip.style.opacity='1';
+}
+function hideTip(){document.getElementById('tip').style.opacity='0';}
+
+async function scanHostPorts(ip){
+  const prof=document.getElementById('profile').value;
+  toast('Scanning ports on '+ip+'…');
+  try{
+    const res=await api('/api/portscan',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ip,profile:prof==='quick'?'extended':prof,workers:document.getElementById('workers').value})});
+    const jid=res.job_id;
+    const wait=async()=>{
+      const job=await api('/api/job?id='+jid);
+      document.getElementById('phase').textContent=job.phase;document.getElementById('spin').classList.add('on');
+      const pct=job.total?Math.round(job.done/job.total*100):0;
+      document.getElementById('progbar').style.width=pct+'%';
+      var _eta2=etaText(job);
+      document.getElementById('progtxt').textContent=job.total?(job.done+' / '+job.total+(_eta2?' · '+_eta2:'')):'';
+      if(job.status==='running'){setTimeout(wait,500);}
+      else{document.getElementById('spin').classList.remove('on');
+        const d=devices.find(x=>x.ip===ip);
+        if(d){d.ports=job.result||[];}
+        lastKey='';render();
+        toast('Found '+((job.result||[]).length)+' open port(s) on '+ip,'green');}
+    };
+    wait();
+  }catch(e){toast('Port scan failed: '+e.message,'red');}
+}
+async function wol(mac){
+  try{await api('/api/wol',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mac})});
+    toast('Wake-on-LAN packet sent to '+mac,'green');}catch(e){toast('WoL failed: '+e.message,'red');}
+}
+async function downloadOui(){
+  const btn=document.getElementById('ouibtn');btn.disabled=true;
+  document.getElementById('ouitxt').textContent='Downloading vendor DB…';
+  try{
+    const res=await api('/api/oui/download',{method:'POST'});
+    const jid=res.job_id;
+    const wait=async()=>{
+      const job=await api('/api/job?id='+jid);
+      if(job.status==='running'){setTimeout(wait,800);return;}
+      btn.disabled=false;
+      if(job.status==='error'){toast('Vendor DB download failed: '+job.error,'red');
+        document.getElementById('ouitxt').textContent='Vendor DB: built-in';return;}
+      updateOui({extended:job.result.entries,builtin:0});
+      toast('Vendor database installed — '+job.result.entries.toLocaleString()+' entries','green');
+    };
+    wait();
+  }catch(e){btn.disabled=false;toast('Download failed: '+e.message,'red');}
+}
+
+function startCardEdit(ip){
+  editingIp=ip; lastKey=''; setView('cards'); render();
+  const n=document.getElementById('ce-name'); if(n) n.focus();
+}
+function cancelCardEdit(){editingIp=null; lastKey=''; render();}
+async function saveCardEdit(){
+  const d=devices.find(x=>x.ip===editingIp);
+  if(!d){editingIp=null; render(); return;}
+  const name=(document.getElementById('ce-name')||{}).value||'';
+  const notes=(document.getElementById('ce-notes')||{}).value||'';
+  try{
+    // Devices on another subnet (behind a router) have no resolvable MAC, so we
+    // key on IP instead. Send both; the server uses MAC when present, else IP.
+    await api('/api/device',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mac:d.mac||'',ip:d.ip,name,notes})});
+    d.name=name; d.notes=notes; editingIp=null; lastKey=''; render(); toast('Saved','green');
+  }catch(e){toast('Save failed: '+e.message,'red');}
+}
+// Clicking a topology node or a table row brings you to its card and highlights it.
+function focusCard(ip){
+  editingIp=null; lastKey=''; setView('cards');
+  setTimeout(()=>{
+    const el=document.getElementById('card-'+ip);
+    if(!el)return;
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    document.querySelectorAll('.card.target').forEach(c=>c.classList.remove('target'));
+    el.classList.add('target');
+    el.style.animation='none'; void el.offsetWidth; el.style.animation='';   // restart the pulse
+    clearTimeout(window._spotT);
+    window._spotT=setTimeout(()=>{ el.classList.remove('target'); }, 4200);  // 4 pulses ≈ 4s
+  },90);
+}
+async function exportData(fmt){
+  if(!devices.length){toast('Nothing to export yet','red');return;}
+  window.open('/api/export?format='+fmt,'_blank');
+}
+
+function toggleMonitor(){
+  if(monitorTimer){clearInterval(monitorTimer);monitorTimer=null;}
+  if(document.getElementById('monitor').checked){
+    const sec=parseInt(document.getElementById('interval').value,10);
+    toast('Live monitoring on — re-scanning every '+(sec/60)+' min','green');
+    monitorTimer=setInterval(()=>{if(!scanning)startScan('monitor');},sec*1000);
+  }else toast('Live monitoring off');
+}
+function toggleNotify(){
+  if(document.getElementById('notify').checked){
+    var nb=document.getElementById('notify');
+    if(!('Notification'in window)){toast('This browser has no notification support','amber');nb.checked=false;return;}
+    // OS notifications require a secure context — Chrome auto-denies over plain HTTP.
+    if(!window.isSecureContext){
+      toast('Desktop alerts need HTTPS. Serve Netryx behind a TLS proxy, or open it via http://localhost. In-app + event alerts still work.','amber');
+      nb.checked=false;return;}
+    Notification.requestPermission().then(p=>{
+      if(p==='granted')toast('Desktop alerts enabled','green');
+      else{toast('Notifications are blocked for this site — allow them in your browser’s site settings.','amber');nb.checked=false;}
+    });
+  }
+}
+function notifyNew(n,np){
+  toast(n+' NEW device'+(n===1?'':'s')+' detected on the network!','green');
+  if(document.getElementById('notify').checked&&('Notification'in window)&&Notification.permission==='granted'){
+    let body=n+' new device'+(n===1?'':'s')+' joined your network.';
+    if(np>0)body+=' '+np+' new open port'+(np===1?'':'s')+'.';
+    try{new Notification('Netryx',{body:body});}catch(e){}
+  }
+}
+
+function setView(v){
+  view=v;lastKey='';
+  try{ if((location.hash||'').slice(1)!==v) location.hash=v; }catch(_){}
+  ['cards','table','map','hist','events','settings','audit'].forEach(x=>{
+    document.getElementById('view-'+x).style.display=(x===v)?'block':'none';
+    const btn=document.getElementById('v-'+x); if(btn)btn.classList.toggle('active',x===v);
+  });
+  document.querySelector('.tool').style.display=(v==='hist'||v==='events'||v==='settings'||v==='audit')?'none':'';
+  // Extend the control band's bottom rule below the map sub-buttons when Map is open.
+  const vb=document.querySelector('.viewbar'); if(vb)vb.classList.toggle('mapopen',v==='map');
+  if(v!=='map')stopSim();
+  if(v==='map')_scheduleAutoExplode(); else _cancelAutoExplode();
+  if(v==='hist')loadHistory();else if(v==='events')renderEvents();else if(v==='settings')renderSettings();else if(v==='audit')renderAudit();else render();
+}
+const SRC_LABELS={manual:'Manual',monitor:'Live monitor',schedule:'Scheduled',mcp:'MCP tool',api:'API',cli:'CLI',unknown:'Unknown'};
+function srcBadge(src,status){
+  const s=(src||'unknown').toLowerCase();
+  const label=SRC_LABELS[s]||s;
+  const stopped=(status==='stopped');
+  return '<span class="srcbadge src-'+esc(s)+'">'+esc(label)+'</span>'+
+    (stopped?' <span class="srcbadge src-stopped">stopped</span>':'');
+}
+async function loadHistory(){
+  try{const items=await api('/api/history');
+    document.getElementById('histbody').innerHTML=items.map(it=>{
+      const dt=new Date((it.time||0)*1000).toLocaleString();
+      return '<tr><td>'+esc(dt)+'</td><td>'+srcBadge(it.source,it.status)+'</td><td class="mono">'+esc(it.subnet||'')+'</td><td>'+it.count+
+        '</td><td><button class="sm ghost" onclick="loadScan(\''+esc(it.file)+'\')">Load</button></td></tr>';
+    }).join('')||'<tr><td colspan="5" class="hint">No history yet.</td></tr>';
+  }catch(e){toast('Could not load history','red');}
+}
+async function loadScan(file){
+  try{const rec=await api('/api/history?file='+encodeURIComponent(file));
+    devices=rec.devices||[];lastKey='';setView('cards');
+    toast('Loaded scan from '+new Date((rec.time||0)*1000).toLocaleString());
+  }catch(e){toast('Could not load scan','red');}
+}
+async function loadLast(){
+  // On launch, show the most recent saved scan instead of a blank page.
+  if(devices.length)return;
+  try{
+    const items=await api('/api/history');
+    if(!items||!items.length)return;
+    const rec=await api('/api/history?file='+encodeURIComponent(items[0].file));
+    if(rec&&rec.devices&&rec.devices.length&&!devices.length){
+      devices=rec.devices; lastKey='';
+      const fr=document.getElementById('firstrun'); if(fr)fr.style.display='none';
+      render();
+      toast('Loaded last scan — '+devices.length+' device'+(devices.length===1?'':'s')+' · '+new Date((rec.time||0)*1000).toLocaleString(),'green');
+    }
+  }catch(e){}
+}
+function eventLabel(ev){
+  const d=ev.data||{};
+  if(ev.kind==='rogue_device')return 'Rogue device '+(d.ip||'')+(d.name?(' ('+d.name+')'):'');
+  if(ev.kind==='new_open_port')return 'New open port '+(d.port||'')+' on '+(d.ip||'');
+  if(ev.kind==='exposure_alert')return 'Critical exposure: '+(d.ip||'')+(d.name?(' ('+d.name+')'):'');
+  if(ev.kind==='device_missing')return 'Device offline: '+(d.ip||'');
+  if(ev.kind==='scan_complete')return 'Scan complete — '+(d.count||0)+' devices';
+  return ev.kind||'event';
+}
+function onLiveEvent(e){
+  let ev; try{ev=JSON.parse(e.data);}catch(_){return;}
+  if(!ev||!ev.id||ev.id<=liveMaxId)return;   // dedup (handles reconnect replays)
+  liveMaxId=ev.id;
+  if(ev.severity==='critical'||ev.severity==='high'){
+    toast(eventLabel(ev), ev.severity==='critical'?'red':'amber');
+    const nb=document.getElementById('notify');
+    if(nb&&nb.checked&&('Notification'in window)&&Notification.permission==='granted'){
+      try{new Notification('Netryx alert',{body:eventLabel(ev)});}catch(_){}
+    }
+  }
+  if(ev.kind==='rogue_device'||ev.kind==='new_open_port'||ev.kind==='exposure_alert')loadBaseline(false);
+  if(view==='events')renderEvents();   // refresh the live feed if it's on screen
+}
+async function startEventStream(){
+  if(!('EventSource'in window))return;
+  // Connect from the newest event so we don't replay (and re-toast) the backlog.
+  let since=0;
+  try{const r=await api('/api/events?limit=1'); if(r.events&&r.events.length)since=r.events[0].id||0;}catch(_){}
+  liveMaxId=since;
+  try{
+    if(evtSrc)evtSrc.close();
+    evtSrc=new EventSource('/api/events/stream?since='+since);
+    evtSrc.onmessage=onLiveEvent;
+    evtSrc.onopen=function(){liveConnected=true; updateLiveDot();};
+    evtSrc.onerror=function(){liveConnected=false; updateLiveDot();};   // EventSource auto-reconnects
+  }catch(_){}
+}
+function updateLiveDot(){
+  const el=document.getElementById('livedot'); if(!el)return;
+  el.className='livedot '+(liveConnected?'on':'off');
+  el.textContent=liveConnected?'● live':'● offline';
+}
+async function renderEvents(){
+  const body=document.getElementById('events-body');
+  body.innerHTML='<p class="hint">Loading…</p>';
+  await loadBaseline(false);
+  try{appInfo=await api('/api/info');updateSecWarn(appInfo.auth);}catch(_){}
+  let evs=[];
+  try{const r=await api('/api/events?limit=200');evs=r.events||[];}catch(_){}
+  const b=baseline||{}, has=!!b.size;
+  const rogues=ROGUE.size, dp=driftPortCount();
+  const tiers={critical:0,high:0,medium:0,low:0,none:0};
+  devices.forEach(d=>{const t=(d.risk&&d.risk.tier)||'none';tiers[t]=(tiers[t]||0)+1;});
+  let html='<div class="seccard"><h3>Known-good baseline</h3>';
+  if(has){
+    html+='<div class="sub">'+b.size+' approved device'+(b.size===1?'':'s')+' · set '+relTime(b.updated||b.created)+'. Every scan is compared against this snapshot; the first sighting of anything new is logged below and pushed to your webhook/MQTT if configured.</div>';
+    html+='<div class="bigstat">'+
+      '<div class="x"><b class="'+(rogues?'tier-high':'tier-none')+'">'+rogues+'</b><span>Rogue devices</span></div>'+
+      '<div class="x"><b class="'+(dp?'tier-medium':'tier-none')+'">'+dp+'</b><span>Unapproved ports</span></div>'+
+      '<div class="x"><b>'+b.size+'</b><span>Approved</span></div></div>';
+    html+='<div class="secrow" style="margin-top:14px"><button class="sm" onclick="setBaseline()">Re-approve current</button>'+
+      '<button class="sm ghost" onclick="clearBaseline()">Clear baseline</button></div>';
+  }else{
+    html+='<div class="sub">No baseline yet. Approve the devices on your network as known-good, then Netryx flags anything unexpected — new devices or newly-open ports — on every later scan, and can push alerts to a webhook or MQTT.</div>';
+    html+='<div class="secrow"><button class="sm primary" onclick="setBaseline()">Set current devices as baseline</button></div>';
+    if(!devices.length)html+='<p class="hint" style="margin-top:10px">Run a scan first — then come back here to approve it.</p>';
+  }
+  html+='</div>';
+  if(has&&(rogues||dp)){
+    const diff=b.diff||{};
+    let rows='';
+    (diff.rogue_devices||[]).forEach(r=>{rows+='<tr><td><span class="badge rogue">ROGUE</span></td><td class="mono">'+esc(r.ip)+'</td><td>'+esc(r.name||'')+'</td><td>'+esc(r.vendor||r.device_type||'')+'</td><td class="mono">'+(r.open_ports||[]).join(', ')+'</td></tr>';});
+    (diff.new_ports||[]).forEach(p=>{rows+='<tr><td><span class="badge drift">PORT</span></td><td class="mono">'+esc(p.ip)+'</td><td colspan="2" class="hint">unapproved open port</td><td class="mono">'+p.port+' '+esc(p.service||'')+'</td></tr>';});
+    html+='<div class="seccard"><h3>Flagged against baseline</h3><div class="tablewrap"><table class="dev"><thead><tr><th></th><th>IP</th><th>Name</th><th>Vendor / type</th><th>Ports</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  }
+  html+='<div class="seccard"><h3>Exposure</h3><div class="sub">Devices ranked by open-port risk in the latest scan (Telnet, RDP, SMB, exposed databases, etc.).</div><div class="bigstat">'+
+    '<div class="x"><b class="tier-critical">'+tiers.critical+'</b><span>Critical</span></div>'+
+    '<div class="x"><b class="tier-high">'+tiers.high+'</b><span>High</span></div>'+
+    '<div class="x"><b class="tier-medium">'+tiers.medium+'</b><span>Medium</span></div>'+
+    '<div class="x"><b class="tier-low">'+tiers.low+'</b><span>Low</span></div>'+
+    '<div class="x"><b class="tier-none">'+tiers.none+'</b><span>None</span></div></div></div>';
+  let feed='';
+  if(evs.length){
+    feed=evs.map(e=>{
+      const d=e.data||{}, when=new Date((e.time||0)*1000).toLocaleString();
+      const detail=(e.kind==='rogue_device')
+        ? (esc(d.ip)+(d.name?(' · '+esc(d.name)):'')+(d.vendor?(' · '+esc(d.vendor)):'')+((d.open_ports&&d.open_ports.length)?(' · ports '+esc(d.open_ports.join(','))):''))
+        : (esc(d.ip)+' · '+esc(d.port)+' '+esc(d.service||''));
+      return '<tr><td class="mono" style="font-size:11px">'+esc(when)+'</td><td><span class="kind '+esc(e.kind)+'">'+(e.kind==='rogue_device'?'rogue device':'new port')+'</span></td><td class="mono">'+detail+'</td></tr>';
+    }).join('');
+  }else{
+    feed='<tr><td colspan="3" class="hint">No alerts yet'+(has?'':' — set a baseline to start detecting changes')+'.</td></tr>';
+  }
+  html+='<div class="seccard evfeed"><h3>Alerts <span id="livedot" class="livedot '+(liveConnected?'on':'off')+'">'+(liveConnected?'● live':'● offline')+'</span></h3><div class="sub">Unexpected devices and ports detected over time, newest first.</div><div class="tablewrap"><table class="dev"><thead><tr><th>When</th><th>Type</th><th>Detail</th></tr></thead><tbody>'+feed+'</tbody></table></div></div>';
+  body.innerHTML=html;
+}
+async function renderSettings(){
+  const body=document.getElementById('settings-body');
+  body.innerHTML='<p class="hint">Loading…</p>';
+  let info=appInfo;
+  try{info=await api('/api/info');appInfo=info;updateSecWarn(info.auth);}catch(_){}
+  const auth=(info&&info.auth)||{};
+  let toks=[];
+  try{const tr=await api('/api/tokens');toks=tr.tokens||[];}catch(_){}
+  let sched={};
+  try{sched=await api('/api/schedule');}catch(_){}
+  let totp={};
+  try{totp=await api('/api/totp/status');}catch(_){}
+  const mcpUrl=(location.origin||'')+'/mcp';
+  let html='';
+  html+='<div class="seccard"><h3>Access control</h3>'+
+    '<div class="sub">Login protects the dashboard, the API and the MCP endpoint. Set <span class="mono">NETRYX_OPEN=1</span> to run fully open on a trusted segment.</div>'+
+    '<div class="bigstat">'+
+      '<div class="x"><b class="'+(auth.enabled===false?'tier-high':'tier-none')+'" style="font-size:17px">'+(auth.enabled===false?'OFF':'ON')+'</b><span>Auth</span></div>'+
+      '<div class="x"><b style="font-size:17px">'+esc(auth.username||'admin')+'</b><span>Admin user</span></div>'+
+      '<div class="x"><b style="font-size:17px">'+(auth.trust_localhost?'trusted':'prompted')+'</b><span>Localhost</span></div>'+
+    '</div>'+
+    (auth.default_creds?'<p class="hint" style="color:#f0c674;margin-top:10px">⚠ Still using the default admin / admin — set a new password below.</p>':'')+
+  '</div>';
+  html+='<div class="seccard"><h3>Admin login</h3>'+
+    '<div class="sub">Change the dashboard username and password. Stored hashed in the data volume, so it survives restarts.'+(auth.trust_localhost?' Localhost is currently trusted (no prompt); set NETRYX_TRUST_LOCALHOST=0 to require login locally too.':'')+'</div>'+
+    '<div class="tokform"><input type="text" id="adm-user" placeholder="username" value="'+esc(auth.username||'admin')+'">'+
+     '<input type="password" id="adm-cur" placeholder="current password" autocomplete="off">'+
+     '<input type="password" id="adm-new" placeholder="new password" autocomplete="off">'+
+     '<button class="sm primary" onclick="changeCreds()">Update login</button></div></div>';
+  // ---- Two-factor authentication card (TOTP, RFC 6238) ----
+  const t2fOn=!!(totp&&totp.enabled);
+  html+='<div class="seccard"><h3>Two-factor authentication</h3>'+
+    '<div class="sub">Optional second step at login: a 6-digit code from <b>Google Authenticator</b>, <b>Microsoft Authenticator</b>, <b>Authy</b>, <b>1Password</b>, <b>Bitwarden</b>, or any TOTP / RFC 6238 app. API tokens used by MCP and other agents are <b>not</b> affected.</div>'+
+    '<div class="bigstat">'+
+      '<div class="x"><b class="'+(t2fOn?'tier-low':'tier-none')+'" style="font-size:17px">'+(t2fOn?'ON':'OFF')+'</b><span>2FA</span></div>'+
+      '<div class="x"><b style="font-size:17px">'+esc(totp.username||auth.username||'admin')+'</b><span>Account</span></div>'+
+    '</div>'+
+    '<div id="totp-panel" style="margin-top:12px"></div>'+
+    (t2fOn
+      ? '<div class="tokform"><input type="password" id="totp-disable-pw" placeholder="current password" autocomplete="off"><button class="sm" onclick="totpDisable()">Disable 2FA</button></div>'
+      : '<div class="tokform"><button class="sm primary" onclick="totpBegin()">Enable 2FA</button></div>')+
+    '<p class="hint" style="margin-top:10px">Lost your authenticator? Run <span class="mono">netryx --reset-2fa '+esc(totp.username||auth.username||'admin')+'</span> on the server to clear 2FA and sign in with just your password.</p>'+
+  '</div>';
+  // ---- Scheduled scans (server-side; own isolated config, separate from the
+  //      manual scan bar and the browser "Live monitor") ----
+  const sIval=Number(sched.interval||3600);
+  const sIdx=schedNearest(sIval);
+  const sSubPH=esc((info&&info.subnet)||'192.168.1.0/24');
+  const sStatus=sched.enabled
+    ? ('Enabled · runs every '+schedFmt(SCHED_STEPS[sIdx])+' · last run '+(sched.last_run?relTime(sched.last_run):'never')+' · next '+fmtWhen(sched.next_run)+(sched.running?' · a scan is running now':''))
+    : 'Disabled — Netryx only scans on a manual or API/MCP trigger.';
+  html+='<div class="seccard"><h3>Scheduled scans</h3>'+
+    '<div class="sub">Run discovery automatically on the server, even with no browser open — so the baseline stays current and agents subscribed over MCP/SSE keep getting events. This has its <b>own</b> targets and options, independent of the scan bar and the browser <span class="mono">Live monitor</span>. Only one scan ever runs at a time: if a scan is already in flight when the timer fires, that tick is skipped until it finishes.</div>'+
+    '<label class="chk" style="margin:4px 0 12px"><input type="checkbox" id="sched-enabled"'+(sched.enabled?' checked':'')+'> Enable scheduled scans</label>'+
+    '<div class="schedrow"><span class="schedlbl">Every</span>'+
+      '<input type="range" id="sched-slider" min="0" max="'+(SCHED_STEPS.length-1)+'" step="1" value="'+sIdx+'" oninput="schedSliderLabel()" style="flex:1;min-width:160px">'+
+      '<b id="sched-ival-label" class="mono" style="min-width:64px;text-align:right">'+schedFmt(SCHED_STEPS[sIdx])+'</b></div>'+
+    '<div class="schedrow" style="color:var(--muted);font-size:11px;justify-content:space-between"><span>1 min</span><span>30 days</span></div>'+
+    '<div class="tokform" style="margin-top:10px"><input type="text" id="sched-targets" placeholder="Targets — blank uses '+sSubPH+'" value="'+esc(sched.targets||'')+'" size="34"></div>'+
+    '<div class="schedopts">'+
+      '<label class="chk" title="Also probe ports during the scheduled scan"><input type="checkbox" id="sched-ports"'+(sched.scan_ports?' checked':'')+'> Scan ports</label>'+
+      '<select id="sched-profile" title="Port-scan depth">'+
+        '<option value="quick"'+(sched.port_profile==='quick'?' selected':'')+'>Quick · ~90 ports</option>'+
+        '<option value="extended"'+(sched.port_profile==='extended'?' selected':'')+'>Extended · 1–1024</option>'+
+        '<option value="full"'+(sched.port_profile==='full'?' selected':'')+'>Full · 1–65535</option>'+
+      '</select>'+
+      '<label class="chk"><input type="checkbox" id="sched-mdns"'+(sched.use_mdns!==false?' checked':'')+'> mDNS</label>'+
+      '<label class="chk"><input type="checkbox" id="sched-snmp"'+(sched.use_snmp!==false?' checked':'')+'> SNMP</label>'+
+      '<span class="wsel">Workers <select id="sched-workers">'+
+        ['auto','128','256','500','800','1000'].map(w=>'<option value="'+w+'"'+(String(sched.workers||'auto')===w?' selected':'')+'>'+(w==='auto'?'Auto':w)+'</option>').join('')+
+      '</select></span>'+
+    '</div>'+
+    '<div class="tokform" style="margin-top:12px"><button class="sm primary" onclick="saveSchedule()">Save schedule</button>'+
+      '<span id="sched-status" class="hint" style="align-self:center">'+esc(sStatus)+'</span></div>'+
+  '</div>';
+  let trows='';
+  if(toks.length){
+    trows=toks.map(t=>'<div class="tokrow"><div class="tokmeta"><div class="nm">'+esc(t.name||'token')+'</div>'+
+      '<div class="mm">created '+relTime(t.created)+' · '+(t.last_used?('used '+relTime(t.last_used)):'never used')+' · '+expLabel(t.expires)+'</div>'+
+      '<div class="tokval"><input id="tokval-'+esc(t.id)+'" type="password" readonly value="'+esc(t.token)+'" onclick="this.select()"><button class="sm ghost" title="Show token" onclick="toggleToken(\''+esc(t.id)+'\',this)">'+EYE+'</button><button class="sm ghost" onclick="copyText(\''+esc(t.token)+'\')">Copy</button></div></div>'+
+      '<div><button class="sm ghost" onclick="deleteTokenUI(\''+esc(t.id)+'\')">Delete</button></div></div>').join('');
+  }else{trows='<p class="hint">No API tokens yet. Create one below for your agents or scripts.</p>';}
+  html+='<div class="seccard"><h3>API tokens</h3>'+
+    '<div class="sub">Authorize agents and scripts with <span class="mono">Authorization: Bearer &lt;token&gt;</span> on the API and the MCP endpoint. Long-lived unless you set an expiry; values stay viewable so you can copy them into an agent later.</div>'+
+    trows+
+    '<div class="tokform"><input type="text" id="tok-name" placeholder="Token name (e.g. claude-agent)"><input type="text" class="days" id="tok-days" placeholder="expiry days (blank = never)"><button class="sm primary" onclick="createTokenUI()">Create token</button></div>'+
+    '<div class="sub" style="margin:14px 0 4px">Use it from an agent or curl:</div>'+
+    '<div class="snip">'+esc('curl -H "Authorization: Bearer <TOKEN>" '+mcpUrl+' -d \'{"jsonrpc":"2.0","id":1,"method":"tools/list"}\'')+'</div>'+
+  '</div>';
+  body.innerHTML=html;
+}
+async function renderAudit(){
+  const body=document.getElementById('audit-body'); if(!body)return;
+  body.innerHTML='<div class="seccard"><h3>MCP &amp; API activity</h3>'+
+    '<div class="sub">Live connections (MCP subscribers, SSE and long-poll waiters) and a log of tool/API calls and pushed events. Auto-refreshes every few seconds.</div>'+
+    '<div id="mcp-activity"><p class="hint">Loading…</p></div></div>';
+  renderMcpActivity();
+  clearInterval(mcpTimer);
+  mcpTimer=setInterval(function(){ if(view==='audit')renderMcpActivity(); else {clearInterval(mcpTimer);mcpTimer=null;} },5000);
+}
+function auditDetail(a){
+  if(a.tool)return 'tool: '+a.tool;
+  if(a.client)return 'client: '+a.client+(a.client_version?(' '+a.client_version):'');
+  if(a.event_id)return 'event #'+a.event_id+(a.event_kind?(' '+a.event_kind):'');
+  if(a.min_severity)return 'filter ≥'+a.min_severity;
+  return '';
+}
+async function renderMcpActivity(){
+  const box=document.getElementById('mcp-activity'); if(!box)return;
+  let subs=[], aud=[];
+  try{const r=await api('/api/mcp/subscribers'); subs=r.subscribers||[];}catch(_){}
+  try{const r=await api('/api/mcp/audit?limit=60'); aud=r.audit||[];}catch(_){}
+  const active=subs.filter(s=>s.active);
+  let h='<div class="bigstat" style="margin:2px 0 8px"><div class="x"><b class="'+(active.length?'tier-low':'tier-none')+'" style="font-size:18px">'+active.length+'</b><span>Live connections</span></div></div>';
+  if(active.length){
+    h+='<div class="tablewrap"><table class="dev"><thead><tr><th>Via</th><th>Caller</th><th>Connected</th><th>Filter</th></tr></thead><tbody>'+
+      active.map(s=>'<tr><td>'+esc(s.transport||'')+'</td><td>'+esc(s.caller||'')+(s.ip?(' <span class="hint">'+esc(s.ip)+'</span>'):'')+'</td><td class="mono" style="font-size:11px">'+relTime(s.since)+'</td><td class="hint">'+esc(s.min_severity?('≥'+s.min_severity):'')+'</td></tr>').join('')+
+      '</tbody></table></div>';
+  }else{ h+='<p class="hint">No live subscribers right now.</p>'; }
+  const rows = aud.length ? aud.map(a=>'<tr><td class="mono" style="font-size:11px">'+esc(new Date((a.time||0)*1000).toLocaleString())+'</td><td>'+esc(a.kind||'')+'</td><td>'+esc(a.transport||'')+'</td><td>'+esc(a.caller||'')+'</td><td class="hint">'+esc(auditDetail(a))+'</td></tr>').join('') : '<tr><td colspan="5" class="hint">No activity recorded yet.</td></tr>';
+  h+='<div class="sub" style="margin:14px 0 4px">Recent activity</div><div class="tablewrap"><table class="dev"><thead><tr><th>When</th><th>Event</th><th>Via</th><th>Caller</th><th>Detail</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  box.innerHTML=h;
+}
+function changeCreds(){
+  const u=(document.getElementById('adm-user').value||'').trim()||'admin';
+  const cur=document.getElementById('adm-cur').value;
+  const np=document.getElementById('adm-new').value;
+  if(!np){toast('Enter a new password','amber');return;}
+  api('/api/credentials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,current_password:cur,password:np})})
+    .then(()=>{toast('Admin login updated.','green');document.getElementById('adm-cur').value='';document.getElementById('adm-new').value='';loadInfo();renderSettings();})
+    .catch(e=>toast((''+e.message).indexOf('403')>=0?'Current password is incorrect':'Could not update: '+e.message,'red'));
+}
+async function totpBegin(){
+  try{
+    const r=await api('/api/totp/begin',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const p=document.getElementById('totp-panel'); if(!p)return;
+    const qrBlock = r.qr_svg
+      ? '<div style="background:#fff;padding:10px;border-radius:8px;max-width:240px;width:100%">'+r.qr_svg+'</div>'
+      : '<div class="hint">(QR rendering unavailable on this server)</div>';
+    p.innerHTML='<div class="seccard" style="margin:6px 0 0;padding:16px;background:var(--bg2)">'+
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:14px">'+
+        '<div class="sub" style="margin:0;text-align:center"><b>Scan this QR code with your authenticator app</b></div>'+
+        qrBlock+
+        '<div class="hint" style="text-align:center;max-width:340px">Works with Google Authenticator, Microsoft Authenticator, Authy, 1Password, Bitwarden, and any TOTP / RFC 6238 app.</div>'+
+      '</div>'+
+      '<details style="margin-top:6px"><summary class="hint" style="cursor:pointer;user-select:none">Can&rsquo;t scan? Enter the setup key manually</summary>'+
+        '<div style="margin-top:10px">'+
+          '<div class="hint" style="margin-bottom:6px">In your authenticator app pick <b>Enter setup key</b> and paste this secret:</div>'+
+          '<div class="snip" style="user-select:all;font-size:13.5px;letter-spacing:.05em">'+esc(r.secret)+'</div>'+
+          '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">'+
+            '<button class="sm ghost" onclick="copyText(\''+esc(r.secret)+'\')">Copy secret</button>'+
+            '<span class="hint">Issuer: '+esc(r.issuer||'Netryx')+' &middot; Account: '+esc(r.username||'admin')+'</span>'+
+          '</div>'+
+          '<div class="hint" style="margin-top:10px;word-break:break-all">On a phone you can also tap this deeplink: <a href="'+esc(r.uri)+'">'+esc(r.uri)+'</a></div>'+
+        '</div>'+
+      '</details>'+
+      '<div style="margin-top:16px"><b>Enter the 6-digit code your app shows to confirm:</b></div>'+
+      '<div class="tokform" style="margin-top:8px">'+
+        '<input type="text" id="totp-code" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="off" style="font-family:var(--mono);font-size:18px;letter-spacing:.25em;text-align:center;max-width:150px">'+
+        '<button class="sm primary" onclick="totpConfirm(\''+esc(r.secret)+'\')">Confirm</button>'+
+        '<button class="sm ghost" onclick="document.getElementById(\'totp-panel\').innerHTML=\'\'">Cancel</button>'+
+      '</div>'+
+    '</div>';
+    const ci=document.getElementById('totp-code'); if(ci)ci.focus();
+  }catch(e){toast('Could not start 2FA enrollment: '+e.message,'red');}
+}
+async function totpConfirm(secret){
+  const code=(document.getElementById('totp-code').value||'').replace(/\D/g,'');
+  if(code.length!==6){toast('Enter the full 6-digit code','amber');return;}
+  try{
+    await api('/api/totp/confirm',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({secret:secret,code:code})});
+    toast('Two-factor authentication enabled.','green');
+    renderSettings();
+  }catch(e){toast('Code did not verify - check your phone clock and try again.','red');}
+}
+async function totpDisable(){
+  const pw=document.getElementById('totp-disable-pw').value;
+  if(!pw){toast('Enter your current password to disable 2FA','amber');return;}
+  try{
+    await api('/api/totp/disable',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:pw})});
+    toast('Two-factor authentication disabled.','green');
+    renderSettings();
+  }catch(e){toast((''+e.message).indexOf('403')>=0?'Password incorrect':'Could not disable: '+e.message,'red');}
+}
+
+// ---- scheduled scans (settings card) ----
+const SCHED_STEPS=[60,120,300,600,900,1800,3600,7200,21600,43200,86400,172800,604800,1209600,2592000];
+function schedFmt(sec){
+  if(sec<3600){return (sec/60)+' min';}
+  if(sec<86400){const h=sec/3600;return h+' hour'+(h>1?'s':'');}
+  const d=sec/86400;return d+' day'+(d>1?'s':'');
+}
+function schedNearest(sec){let bi=6,bd=Infinity;for(let i=0;i<SCHED_STEPS.length;i++){const d=Math.abs(SCHED_STEPS[i]-sec);if(d<bd){bd=d;bi=i;}}return bi;}
+function schedSliderLabel(){const el=document.getElementById('sched-slider');if(!el)return;document.getElementById('sched-ival-label').textContent=schedFmt(SCHED_STEPS[+el.value]);}
+function fmtWhen(ts){if(!ts)return '—';const s=Math.floor(ts-Date.now()/1000);if(s<=0)return 'due now';if(s<60)return 'in '+s+'s';const m=Math.floor(s/60);if(m<60)return 'in '+m+' min';const h=Math.floor(m/60);if(h<24)return 'in '+h+'h';return 'in '+Math.floor(h/24)+'d';}
+function saveSchedule(){
+  const idx=+(document.getElementById('sched-slider').value||6);
+  const payload={
+    enabled:document.getElementById('sched-enabled').checked,
+    interval:SCHED_STEPS[idx],
+    targets:(document.getElementById('sched-targets').value||'').trim(),
+    scan_ports:document.getElementById('sched-ports').checked,
+    port_profile:document.getElementById('sched-profile').value,
+    use_mdns:document.getElementById('sched-mdns').checked,
+    use_snmp:document.getElementById('sched-snmp').checked,
+    workers:document.getElementById('sched-workers').value
+  };
+  api('/api/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(r=>{
+      toast(r.enabled?('Scheduled scans on — every '+schedFmt(r.interval)):'Scheduled scans off','green');
+      const st=document.getElementById('sched-status');
+      if(st)st.textContent=r.enabled?('Enabled · runs every '+schedFmt(r.interval)+' · next '+fmtWhen(r.next_run)):'Disabled — Netryx only scans on a manual or API/MCP trigger.';
+    })
+    .catch(e=>toast('Could not save schedule: '+e.message,'red'));
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&editingIp)cancelCardEdit();});
+window.addEventListener('resize',()=>{if(view==='map')renderTopo();});
+// "Scan ports" — on by default, and remember the user's choice thereafter.
+function saveScanPorts(){try{localStorage.setItem('ns_scanports',document.getElementById('scanports').checked?'1':'0');}catch(_){}}
+// Theme cycle — forward through dark › medium › light › dark …
+// The early <head> script sets the initial value; this advances + remembers it.
+var THEMES=['dark','medium','light'];
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute('data-theme');
+  var i=THEMES.indexOf(cur); if(i<0)i=0;
+  var next=THEMES[(i+1)%THEMES.length];
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('ns_theme',next);}catch(_){}
+}
+try{matchMedia('(prefers-color-scheme: light)').addEventListener('change',function(e){
+  if(!localStorage.getItem('ns_theme')) document.documentElement.setAttribute('data-theme',e.matches?'light':'dark');
+});}catch(_){}
+(function(){var v=null;try{v=localStorage.getItem('ns_scanports');}catch(_){}
+  var el=document.getElementById('scanports'); if(el) el.checked=(v==null)?true:(v==='1');})();
+loadInfo();
+loadBaseline(false);
+loadLast();
+startEventStream();
+// Restore the view from the URL hash on load, and keep Back/Forward + refresh in sync.
+(function(){
+  const VALID=['table','cards','map','hist','events','settings','audit'];
+  function fromHash(){ const h=(location.hash||'').replace(/^#/,''); return VALID.indexOf(h)>=0?h:'map'; }
+  const start=fromHash();
+  if(start!=='table') setView(start);
+  window.addEventListener('hashchange',function(){ const h=fromHash(); if(h!==view) setView(h); });
+})();
+</script>
+</body>
+</html>
